@@ -37,7 +37,7 @@ Railway builds the root `Dockerfile` and serves it on its own HTTPS domain.
 `railway.toml` is already in the repo (Dockerfile builder, health check, 1 replica).
 
 1. [railway.app](https://railway.app) → **New Project → Deploy from GitHub repo**
-   → pick `atlas-et-hackathon`. It auto-detects the Dockerfile and builds
+   → pick `atlas-unified_ai_brain`. It auto-detects the Dockerfile and builds
    (~10–15 min; torch + Docling models bake in).
 2. **Variables** (service → Variables) → add:
    - `DATABASE_URL` (from step 1)
@@ -72,8 +72,8 @@ Caddy for auto-HTTPS) runs on it. Same steps work on **E2E Networks** or **Utho*
    # Docker (skip if you picked the Docker OS template)
    apt-get update && apt-get install -y docker.io docker-compose-plugin git
 
-   git clone https://github.com/arnavbhatia2003/atlas-et-hackathon.git
-   cd atlas-et-hackathon
+   git clone https://github.com/arnavbhatia2003/atlas-unified_ai_brain.git
+   cd atlas-unified_ai_brain
    cp backend/.env.example backend/.env
    nano backend/.env      # set DATABASE_URL, NVIDIA_API_KEY; DOCLING_ENABLED=true
 
