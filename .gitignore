@@ -33,6 +33,14 @@ reference-screenshots/
 # ── Working notes folder (a curated copy lives in docs/architecture) ──────
 mermaid diagrams/
 
+# ── Personal documentation (not for public repo) ──────────────────────────
+RESUME*.md
+DEPLOYMENT_COMPLETE.md
+DEPLOYMENT_STATUS.md
+FINAL_DEPLOYMENT_SUMMARY.md
+CLEANUP_CHECKLIST.md
+SECURITY_INCIDENT_SUMMARY.md
+
 # ── IDE / tooling / OS ───────────────────────────────────────────────────
 .kiro/
 .playwright-mcp/
