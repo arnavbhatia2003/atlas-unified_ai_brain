@@ -6,11 +6,11 @@
   "status": "pass",
   "visualReview": "not-requested",
   "provenance": "current",
-  "deliveryReceiptId": "acee6104-b470-4d21-84eb-9f04a1a15a94",
+  "deliveryReceiptId": "e8e0037a-060e-4793-998e-6f2eb7d992c0",
   "artifact": {
     "path": "C:\\Users\\there\\Downloads\\atlas\\docs\\atlas-architecture.html",
-    "sha256": "0b59bc5f219cd3de3e131f2e9663381b4d51f58f1d18334405c3aee5ce01c9d0",
-    "bytes": 759823
+    "sha256": "269a8c4cbcba6ea61fc0f5ba37fb22d788eaf8bb1726e887bb010adc119ca4e9",
+    "bytes": 763001
   },
   "state": {
     "detail": "read",
@@ -45,13 +45,13 @@
         "diagramWidth": 1346,
         "pageComposition": {
           "bodyPaddingPx": 12,
-          "headerPx": 78,
+          "headerPx": 52,
           "diagramChromePx": 78,
-          "svgPx": 632,
+          "svgPx": 745,
           "cardsPx": 0,
-          "viewBoxHeight": 484
+          "viewBoxHeight": 708
         },
-        "viewBoxWidth": 1030,
+        "viewBoxWidth": 1280,
         "minimumProjectedNodeTextPx": 8,
         "minimumProjectedNonEdgeTextPx": 9,
         "minimumProjectedEdgeTextPx": 8,
@@ -93,17 +93,17 @@
         "readerOverflow": null,
         "readerFit": "intrinsic-height",
         "ok": true,
-        "readerWidth": 1536,
-        "diagramWidth": 1506,
+        "readerWidth": 1440,
+        "diagramWidth": 1410,
         "pageComposition": {
           "bodyPaddingPx": 64,
-          "headerPx": 86,
+          "headerPx": 60,
           "diagramChromePx": 84,
-          "svgPx": 708,
+          "svgPx": 780,
           "cardsPx": 0,
-          "viewBoxHeight": 484
+          "viewBoxHeight": 708
         },
-        "viewBoxWidth": 1030,
+        "viewBoxWidth": 1280,
         "minimumProjectedNodeTextPx": 8,
         "minimumProjectedNonEdgeTextPx": 9,
         "minimumProjectedEdgeTextPx": 8,
@@ -145,17 +145,17 @@
         "readerOverflow": null,
         "readerFit": "intrinsic-height",
         "ok": true,
-        "readerWidth": 1805,
-        "diagramWidth": 1775,
+        "readerWidth": 1585,
+        "diagramWidth": 1555,
         "pageComposition": {
           "bodyPaddingPx": 64,
-          "headerPx": 86,
+          "headerPx": 60,
           "diagramChromePx": 84,
-          "svgPx": 834,
+          "svgPx": 860,
           "cardsPx": 0,
-          "viewBoxHeight": 484
+          "viewBoxHeight": 708
         },
-        "viewBoxWidth": 1030,
+        "viewBoxWidth": 1280,
         "minimumProjectedNodeTextPx": 8,
         "minimumProjectedNonEdgeTextPx": 9,
         "minimumProjectedEdgeTextPx": 8,
@@ -201,13 +201,13 @@
         "diagramWidth": 1870,
         "pageComposition": {
           "bodyPaddingPx": 64,
-          "headerPx": 94,
+          "headerPx": 68,
           "diagramChromePx": 94,
-          "svgPx": 879,
+          "svgPx": 1034,
           "cardsPx": 0,
-          "viewBoxHeight": 484
+          "viewBoxHeight": 708
         },
-        "viewBoxWidth": 1030,
+        "viewBoxWidth": 1280,
         "minimumProjectedNodeTextPx": 8,
         "minimumProjectedNonEdgeTextPx": 9,
         "minimumProjectedEdgeTextPx": 8,
@@ -306,13 +306,13 @@
         "diagramWidth": 1346,
         "pageComposition": {
           "bodyPaddingPx": 12,
-          "headerPx": 78,
+          "headerPx": 52,
           "diagramChromePx": 78,
-          "svgPx": 632,
+          "svgPx": 745,
           "cardsPx": 0,
-          "viewBoxHeight": 484
+          "viewBoxHeight": 708
         },
-        "viewBoxWidth": 1030,
+        "viewBoxWidth": 1280,
         "minimumProjectedNodeTextPx": 8,
         "minimumProjectedNonEdgeTextPx": 9,
         "minimumProjectedEdgeTextPx": 8,
@@ -354,17 +354,17 @@
         "readerOverflow": null,
         "readerFit": "intrinsic-height",
         "ok": true,
-        "readerWidth": 1536,
-        "diagramWidth": 1506,
+        "readerWidth": 1440,
+        "diagramWidth": 1410,
         "pageComposition": {
           "bodyPaddingPx": 64,
-          "headerPx": 86,
+          "headerPx": 60,
           "diagramChromePx": 84,
-          "svgPx": 708,
+          "svgPx": 780,
           "cardsPx": 0,
-          "viewBoxHeight": 484
+          "viewBoxHeight": 708
         },
-        "viewBoxWidth": 1030,
+        "viewBoxWidth": 1280,
         "minimumProjectedNodeTextPx": 8,
         "minimumProjectedNonEdgeTextPx": 9,
         "minimumProjectedEdgeTextPx": 8,
@@ -406,17 +406,17 @@
         "readerOverflow": null,
         "readerFit": "intrinsic-height",
         "ok": true,
-        "readerWidth": 1805,
-        "diagramWidth": 1775,
+        "readerWidth": 1585,
+        "diagramWidth": 1555,
         "pageComposition": {
           "bodyPaddingPx": 64,
-          "headerPx": 86,
+          "headerPx": 60,
           "diagramChromePx": 84,
-          "svgPx": 834,
+          "svgPx": 860,
           "cardsPx": 0,
-          "viewBoxHeight": 484
+          "viewBoxHeight": 708
         },
-        "viewBoxWidth": 1030,
+        "viewBoxWidth": 1280,
         "minimumProjectedNodeTextPx": 8,
         "minimumProjectedNonEdgeTextPx": 9,
         "minimumProjectedEdgeTextPx": 8,
@@ -462,13 +462,13 @@
         "diagramWidth": 1870,
         "pageComposition": {
           "bodyPaddingPx": 64,
-          "headerPx": 94,
+          "headerPx": 68,
           "diagramChromePx": 94,
-          "svgPx": 879,
+          "svgPx": 1034,
           "cardsPx": 0,
-          "viewBoxHeight": 484
+          "viewBoxHeight": 708
         },
-        "viewBoxWidth": 1030,
+        "viewBoxWidth": 1280,
         "minimumProjectedNodeTextPx": 8,
         "minimumProjectedNonEdgeTextPx": 9,
         "minimumProjectedEdgeTextPx": 8,
@@ -519,13 +519,13 @@
         "diagramWidth": 1346,
         "pageComposition": {
           "bodyPaddingPx": 12,
-          "headerPx": 78,
+          "headerPx": 52,
           "diagramChromePx": 78,
-          "svgPx": 632,
+          "svgPx": 745,
           "cardsPx": 0,
-          "viewBoxHeight": 484
+          "viewBoxHeight": 708
         },
-        "viewBoxWidth": 1030,
+        "viewBoxWidth": 1280,
         "minimumProjectedNodeTextPx": 8,
         "minimumProjectedNonEdgeTextPx": 9,
         "minimumProjectedEdgeTextPx": 8,
@@ -567,17 +567,17 @@
         "readerOverflow": null,
         "readerFit": "intrinsic-height",
         "ok": true,
-        "readerWidth": 1536,
-        "diagramWidth": 1506,
+        "readerWidth": 1440,
+        "diagramWidth": 1410,
         "pageComposition": {
           "bodyPaddingPx": 64,
-          "headerPx": 86,
+          "headerPx": 60,
           "diagramChromePx": 84,
-          "svgPx": 708,
+          "svgPx": 780,
           "cardsPx": 0,
-          "viewBoxHeight": 484
+          "viewBoxHeight": 708
         },
-        "viewBoxWidth": 1030,
+        "viewBoxWidth": 1280,
         "minimumProjectedNodeTextPx": 8,
         "minimumProjectedNonEdgeTextPx": 9,
         "minimumProjectedEdgeTextPx": 8,
@@ -619,17 +619,17 @@
         "readerOverflow": null,
         "readerFit": "intrinsic-height",
         "ok": true,
-        "readerWidth": 1805,
-        "diagramWidth": 1775,
+        "readerWidth": 1585,
+        "diagramWidth": 1555,
         "pageComposition": {
           "bodyPaddingPx": 64,
-          "headerPx": 86,
+          "headerPx": 60,
           "diagramChromePx": 84,
-          "svgPx": 834,
+          "svgPx": 860,
           "cardsPx": 0,
-          "viewBoxHeight": 484
+          "viewBoxHeight": 708
         },
-        "viewBoxWidth": 1030,
+        "viewBoxWidth": 1280,
         "minimumProjectedNodeTextPx": 8,
         "minimumProjectedNonEdgeTextPx": 9,
         "minimumProjectedEdgeTextPx": 8,
@@ -675,13 +675,13 @@
         "diagramWidth": 1870,
         "pageComposition": {
           "bodyPaddingPx": 64,
-          "headerPx": 94,
+          "headerPx": 68,
           "diagramChromePx": 94,
-          "svgPx": 879,
+          "svgPx": 1034,
           "cardsPx": 0,
-          "viewBoxHeight": 484
+          "viewBoxHeight": 708
         },
-        "viewBoxWidth": 1030,
+        "viewBoxWidth": 1280,
         "minimumProjectedNodeTextPx": 8,
         "minimumProjectedNonEdgeTextPx": 9,
         "minimumProjectedEdgeTextPx": 8,

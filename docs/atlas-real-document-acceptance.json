@@ -1,0 +1,316 @@
+{
+  "scope": "Bounded local acceptance, not an industrial benchmark or proof of semantic entailment",
+  "sources": {
+    "arduino-uno-r3.pdf": "https://docs.arduino.cc/resources/datasheets/A000066-datasheet.pdf",
+    "atmega328p-datasheet.pdf": "https://ww1.microchip.com/downloads/en/DeviceDoc/Atmel-7810-Automotive-Microcontrollers-ATmega328P_Datasheet.pdf"
+  },
+  "uploads": [
+    {
+      "filename": "arduino-uno-r3.pdf",
+      "pages": 27,
+      "passages": 43,
+      "already_present": true,
+      "reprocessed": true,
+      "native_searchable_seconds": 0.444,
+      "finished_seconds": 55.673,
+      "original_bytes_match": true
+    },
+    {
+      "filename": "atmega328p-datasheet.pdf",
+      "pages": 294,
+      "passages": 675,
+      "already_present": true,
+      "reprocessed": true,
+      "native_searchable_seconds": 5.821,
+      "finished_seconds": 22.989,
+      "original_bytes_match": true
+    }
+  ],
+  "cases": [
+    {
+      "name": "offline_setup",
+      "question": "What must I install and what cable is needed to program the UNO R3 without an internet connection?",
+      "seconds": 3.494,
+      "mode": "llm",
+      "retrieval": "whole_document",
+      "answer": "To program the UNO R3 without an internet connection, you need to install the Arduino Desktop IDE and use a USB-B cable. [PDF:27:p21:c35]",
+      "used_citations": [
+        "PDF:27:p21:c35"
+      ],
+      "answer_ok": true,
+      "page_ok": true,
+      "passed": true,
+      "validation_messages": [
+        "Supporting quotes failed validation; retrying once against the original passages"
+      ]
+    },
+    {
+      "name": "voltage_table",
+      "question": "What are the maximum input voltages for VIN and USB?",
+      "seconds": 1.927,
+      "mode": "llm",
+      "retrieval": "whole_document",
+      "answer": "VINMax: 20 V, VUSBMax: 5.5 V [PDF:27:p6:c9] [PDF:27:p6:c10]",
+      "used_citations": [
+        "PDF:27:p6:c9",
+        "PDF:27:p6:c10"
+      ],
+      "answer_ok": true,
+      "page_ok": true,
+      "passed": true,
+      "validation_messages": []
+    },
+    {
+      "name": "memory",
+      "question": "What are the flash, SRAM and EEPROM capacities of the ATmega328P?",
+      "seconds": 1.259,
+      "mode": "llm",
+      "retrieval": "whole_document",
+      "answer": "32 kB Flash, 2 kB SRAM, 1 kB EEPROM [PDF:27:p2:c2]",
+      "used_citations": [
+        "PDF:27:p2:c2"
+      ],
+      "answer_ok": true,
+      "page_ok": true,
+      "passed": true,
+      "validation_messages": []
+    },
+    {
+      "name": "conflict",
+      "question": "Does the manual give consistent processor clock speeds? Compare Features and Processor sections.",
+      "seconds": 4.691,
+      "mode": "llm",
+      "retrieval": "whole_document",
+      "answer": "The Features section states the AVR CPU runs at up to 16 MHz, while the Processor section states the Main Processor (ATmega328P) runs at up to 20 MHz, showing inconsistent clock speeds. [PDF:27:p2:c2] [PDF:27:p7:c12]",
+      "used_citations": [
+        "PDF:27:p2:c2",
+        "PDF:27:p7:c12"
+      ],
+      "answer_ok": true,
+      "page_ok": true,
+      "passed": true,
+      "validation_messages": []
+    },
+    {
+      "name": "pinout",
+      "question": "Which analog pins carry the I2C data and clock lines?",
+      "seconds": 1.43,
+      "mode": "llm",
+      "retrieval": "whole_document",
+      "answer": "A4/SDA and A5/SCL [PDF:27:p11:c17]",
+      "used_citations": [
+        "PDF:27:p11:c17"
+      ],
+      "answer_ok": true,
+      "page_ok": true,
+      "passed": true,
+      "validation_messages": []
+    },
+    {
+      "name": "placeholder",
+      "question": "The PMax row contains xx. Does this PDF establish a numeric maximum whole-board power consumption?",
+      "seconds": 0.862,
+      "mode": "llm",
+      "retrieval": "whole_document",
+      "answer": "The retrieved PDF passages do not establish an answer to this question.",
+      "used_citations": [],
+      "answer_ok": true,
+      "page_ok": true,
+      "passed": true,
+      "validation_messages": []
+    },
+    {
+      "name": "absent_warranty",
+      "question": "What is the warranty expiry date of my installed UNO R3?",
+      "seconds": 0.897,
+      "mode": "llm",
+      "retrieval": "whole_document",
+      "answer": "The retrieved PDF passages do not establish an answer to this question.",
+      "used_citations": [],
+      "answer_ok": true,
+      "page_ok": true,
+      "passed": true,
+      "validation_messages": []
+    },
+    {
+      "name": "component_table",
+      "question": "Which module is listed at board reference U3?",
+      "seconds": 1.075,
+      "mode": "llm",
+      "retrieval": "whole_document",
+      "answer": "ATMEGA16U2 Module [PDF:27:p7:c12]",
+      "used_citations": [
+        "PDF:27:p7:c12"
+      ],
+      "answer_ok": true,
+      "page_ok": true,
+      "passed": true,
+      "validation_messages": []
+    },
+    {
+      "name": "summary",
+      "question": "Summarize how to start using this board and its main hardware limitations. Include flash/SRAM/EEPROM capacities and VIN/USB voltage limits.",
+      "seconds": 2.654,
+      "mode": "llm",
+      "retrieval": "whole_document",
+      "answer": "To start using the Arduino UNO R3, install the Arduino Desktop IDE and connect via USB-B cable for power and programming, or use the Arduino Cloud Editor with a plugin. Main hardware limitations include: ATmega328P processor with 32 kB Flash, 2 kB SRAM, 1 kB EEPROM; VIN maximum input voltage is 20 V; USB maximum input voltage is 5.5 V. [PDF:27:p9:c15] [PDF:27:p2:c2] [PDF:27:p6:c9] [PDF:27:p6:c10]",
+      "used_citations": [
+        "PDF:27:p9:c15",
+        "PDF:27:p2:c2",
+        "PDF:27:p6:c9",
+        "PDF:27:p6:c10"
+      ],
+      "answer_ok": true,
+      "page_ok": true,
+      "passed": true,
+      "validation_messages": [
+        "Citation handles corrected to the retrieved passages containing the verified verbatim quotes"
+      ]
+    },
+    {
+      "name": "large_endurance",
+      "question": "What write/erase endurance is specified for flash and EEPROM?",
+      "seconds": 6.216,
+      "mode": "llm",
+      "retrieval": "indexed_keyword",
+      "answer": "Flash: 10,000 write/erase cycles; EEPROM: 100,000 write/erase cycles [PDF:29:p1:c0] [PDF:29:p19:c36]",
+      "used_citations": [
+        "PDF:29:p1:c0",
+        "PDF:29:p19:c36"
+      ],
+      "answer_ok": true,
+      "page_ok": true,
+      "passed": true,
+      "validation_messages": []
+    },
+    {
+      "name": "large_voltage",
+      "question": "What operating voltage range is specified for ATmega328P?",
+      "seconds": 10.817,
+      "mode": "llm",
+      "retrieval": "indexed_keyword",
+      "answer": "2.7V to 5.5V for ATmega328P [PDF:29:p2:c2]",
+      "used_citations": [
+        "PDF:29:p2:c2"
+      ],
+      "answer_ok": true,
+      "page_ok": true,
+      "passed": true,
+      "validation_messages": []
+    },
+    {
+      "name": "late_errata",
+      "question": "In the Errata section, what is stated for device Revision D versus Revision A to Revision C?",
+      "seconds": 3.622,
+      "mode": "llm",
+      "retrieval": "indexed_keyword",
+      "answer": "For Revision D: No known errata. For Revision A to Revision C: Not sampled. [PDF:29:p288:c645]",
+      "used_citations": [
+        "PDF:29:p288:c645"
+      ],
+      "answer_ok": true,
+      "page_ok": true,
+      "passed": true,
+      "validation_messages": []
+    },
+    {
+      "name": "scope_guard",
+      "question": "What is the UNO R3 board's VIN pad maximum input voltage?",
+      "seconds": 4.345,
+      "mode": "llm",
+      "retrieval": "indexed_keyword",
+      "answer": "The retrieved PDF passages do not establish an answer to this question.",
+      "used_citations": [],
+      "answer_ok": true,
+      "page_ok": true,
+      "passed": true,
+      "validation_messages": []
+    },
+    {
+      "name": "follow_up",
+      "question": "And for USB?",
+      "seconds": 1.131,
+      "mode": "llm",
+      "retrieval": "whole_document",
+      "answer": "The maximum input voltage from USB connector is 5.5 V. [PDF:27:p6:c10]",
+      "used_citations": [
+        "PDF:27:p6:c10"
+      ],
+      "answer_ok": true,
+      "page_ok": true,
+      "passed": true,
+      "validation_messages": []
+    }
+  ],
+  "concurrent": [
+    {
+      "question": "What must I install and what cable is needed to program the UNO R3 without an internet connection?",
+      "seconds": 3.518,
+      "mode": "llm",
+      "retrieval": "whole_document",
+      "answer": "To program the UNO R3 offline, install the Arduino Desktop IDE and use a USB-B cable. [PDF:27:p21:c35]",
+      "used_citations": [
+        "PDF:27:p21:c35"
+      ],
+      "answer_ok": true,
+      "page_ok": true,
+      "passed": true,
+      "validation_messages": [
+        "Supporting quotes failed validation; retrying once against the original passages"
+      ]
+    },
+    {
+      "question": "What are the maximum input voltages for VIN and USB?",
+      "seconds": 2.323,
+      "mode": "llm",
+      "retrieval": "whole_document",
+      "answer": "VINMax: 20 V, VUSBMax: 5.5 V [PDF:27:p6:c9] [PDF:27:p6:c10]",
+      "used_citations": [
+        "PDF:27:p6:c9",
+        "PDF:27:p6:c10"
+      ],
+      "answer_ok": true,
+      "page_ok": true,
+      "passed": true,
+      "validation_messages": []
+    },
+    {
+      "question": "What are the flash, SRAM and EEPROM capacities of the ATmega328P?",
+      "seconds": 1.957,
+      "mode": "llm",
+      "retrieval": "whole_document",
+      "answer": "32 kB Flash, 2 kB SRAM, 1 kB EEPROM [PDF:27:p2:c2]",
+      "used_citations": [
+        "PDF:27:p2:c2"
+      ],
+      "answer_ok": true,
+      "page_ok": true,
+      "passed": true,
+      "validation_messages": []
+    },
+    {
+      "question": "Does the manual give consistent processor clock speeds? Compare Features and Processor sections.",
+      "seconds": 2.291,
+      "mode": "llm",
+      "retrieval": "whole_document",
+      "answer": "The Features section states the AVR CPU runs at up to 16 MHz, while the Processor section states the Main Processor (ATmega328P) runs at up to 20 MHz, showing inconsistent clock speeds. [PDF:27:p2:c2] [PDF:27:p7:c12]",
+      "used_citations": [
+        "PDF:27:p2:c2",
+        "PDF:27:p7:c12"
+      ],
+      "answer_ok": true,
+      "page_ok": true,
+      "passed": true,
+      "validation_messages": []
+    }
+  ],
+  "concurrent_wall_seconds": 3.533,
+  "pdf_connector": {
+    "kind": "document",
+    "asset_records": 0,
+    "passages": 43,
+    "json_sync_rejected": true
+  },
+  "passed": true,
+  "sequential_median_seconds": 2.29
+}

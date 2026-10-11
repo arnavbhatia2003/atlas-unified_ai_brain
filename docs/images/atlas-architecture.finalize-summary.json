@@ -7,13 +7,13 @@
   "quality": "showcase",
   "specification": {
     "path": "C:\\Users\\there\\Downloads\\atlas\\docs\\atlas-architecture.json",
-    "sha256": "aeb5ba2034a69cbf410c37914fd1cd131353c86a2591b7394ea6b799bd50ca1d",
-    "bytes": 3371
+    "sha256": "f1816209e6b27275bdc6cab1dcde11eaf4174d384f6eaa8bd64e1a8682ee5247",
+    "bytes": 7286
   },
   "artifact": {
     "path": "C:\\Users\\there\\Downloads\\atlas\\docs\\atlas-architecture.html",
-    "sha256": "0b59bc5f219cd3de3e131f2e9663381b4d51f58f1d18334405c3aee5ce01c9d0",
-    "bytes": 759823
+    "sha256": "269a8c4cbcba6ea61fc0f5ba37fb22d788eaf8bb1726e887bb010adc119ca4e9",
+    "bytes": 763001
   },
   "gates": {
     "validate": "pass",
@@ -43,95 +43,33 @@
     "noticeText": null
   },
   "visualReview": "not-requested",
-  "durationMs": 7866,
+  "durationMs": 7102,
   "visualReviewRecommendation": {
     "action": "inspect-route-readability",
     "signals": {
-      "resolvedCrossovers": 2,
-      "routesOverSuggestedBends": 2
+      "routesOverSuggestedBends": 1
     },
     "reason": "Automated gates passed, but crossings or detours still need perceptual review before claiming visual quality.",
     "affectedRoutes": {
-      "crossings": [
-        {
-          "left": {
-            "id": "json-ingest",
-            "from": "api",
-            "to": "pipeline",
-            "label": "JSON sync",
-            "collectionIndex": 4,
-            "artifactIndex": 5
-          },
-          "right": {
-            "id": "workflow-models",
-            "from": "api",
-            "to": "nim",
-            "label": "reason / rerank",
-            "collectionIndex": 7,
-            "artifactIndex": 8
-          },
-          "point": [
-            500,
-            232.5
-          ],
-          "sharedNode": "api"
-        },
-        {
-          "left": {
-            "id": "projection",
-            "from": "pipeline",
-            "to": "db",
-            "label": "rebuild views",
-            "collectionIndex": 5,
-            "artifactIndex": 6
-          },
-          "right": {
-            "id": "workflow-models",
-            "from": "api",
-            "to": "nim",
-            "label": "reason / rerank",
-            "collectionIndex": 7,
-            "artifactIndex": 8
-          },
-          "point": [
-            634,
-            232.5
-          ]
-        }
-      ],
+      "crossings": [],
       "detours": [
         {
           "relationship": {
-            "id": "pdf-upload",
-            "from": "api",
-            "to": "documents",
-            "label": "PDF upload",
-            "collectionIndex": 2,
-            "artifactIndex": 3
-          },
-          "bends": 3,
-          "stretch": 1
-        },
-        {
-          "relationship": {
-            "id": "workflow-models",
-            "from": "api",
+            "id": "pdf-mentions",
+            "from": "documents",
             "to": "nim",
-            "label": "reason / rerank",
-            "collectionIndex": 7,
-            "artifactIndex": 8
+            "label": "optional mention IE",
+            "collectionIndex": 9,
+            "artifactIndex": 10
           },
           "bends": 3,
-          "stretch": 1
+          "stretch": 1.161
         }
       ],
       "truncated": false
     },
     "hints": [
-      "api → pipeline and api → nim cross next to api: move node pipeline or nim so the two reach api from different sides (for example one level with it, one directly above or below it).",
-      "pipeline → db crosses api → nim: move the node of whichever is a branch, return, or second entrance to the other side of the main path, so that relationship runs through an empty corridor.",
-      "api → documents needs 3 bends: move node api or documents so they share a row or column with matching centers, or sit diagonally with a clear corner.",
-      "api → nim needs 3 bends: move node api or nim so they share a row or column with matching centers, or sit diagonally with a clear corner."
+      "documents → nim needs 3 bends: move node documents or nim so they share a row or column with matching centers, or sit diagonally with a clear corner."
     ],
     "repair": "Trace these relationships at the desktop viewport. For Architecture, use references/architecture-layout-repair.md: reflow a blocked main path or tangled connected scene, and repair an isolated defect locally only when the surrounding composition is accepted. Preserve all semantic content and user-fixed geometry. Rerun finalize once after the edit."
   }

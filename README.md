@@ -38,7 +38,7 @@ PDF questions work without asset extraction. Selectable text uses the fast nativ
 parser; image pages use isolated Docling OCR. Original PDFs remain available at
 cited pages. See [project readiness](docs/project-readiness.md) for the teacher
 demonstration, requirements, setup checks and remaining industrial gaps, and
-[live PDF acceptance](docs/atlas-pdf-acceptance.json) for the bounded measured run.
+[real-document acceptance](docs/atlas-real-document-acceptance.json) for the bounded measured run, and the [interactive architecture](docs/atlas-architecture.html) for implemented branches and source evidence.
 The [interactive assessment](docs/atlas-assessment.html) preserves the earlier
 audit baseline and links current remediation.
 
@@ -70,11 +70,11 @@ require review; the system does not guarantee complete or correct identity.**
   where **every claim cites its source record**.
 - **Ask Copilot** — a hardened intent router (grounded Q&A, asset lookup, RCA,
   compliance, overview) that resists off-topic questions and prompt injection,
-  and asks a clarifying question only when genuinely unsure. Reasoning streams
+  and asks a clarifying question only when genuinely unsure. Processing progress streams
   separately from the answer.
 - **Root-cause analysis** — reasons only when failure evidence exists, follows
-  dependencies for **multi-hop** causes, and **calibrates confidence to the
-  evidence** (never asserts certainty from thin data).
+  dependencies for upstream failures, and presents hypotheses and unresolved
+  evidence. Confidence is a heuristic, not a calibrated probability.
 - **Compliance** — the at-risk list is a deterministic graph query, not a guess.
 
 ## Screenshots
