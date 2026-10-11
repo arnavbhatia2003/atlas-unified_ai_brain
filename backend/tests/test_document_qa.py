@@ -67,8 +67,9 @@ def test_invalid_embedding_vectors_cannot_match():
 
 def test_embedding_outage_recovers_after_cooldown(monkeypatch):
     from app.services import embeddings
-    from app.services.rate_limit import get_rate_limiter
-    monkeypatch.setattr(get_rate_limiter(), "acquire", lambda **kw: True)
+    from app.services import rate_limit
+    from types import SimpleNamespace
+    monkeypatch.setattr(rate_limit, "get_rate_limiter", lambda: SimpleNamespace(acquire=lambda **kw: True))
     client = EmbeddingClient("test")
     class Provider:
         calls = 0
