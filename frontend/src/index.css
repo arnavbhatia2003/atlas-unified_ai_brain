@@ -4,134 +4,132 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
-  Evidence workspace design tokens (shadcn/ui, Tailwind v4).
+  ATLAS // TACTICAL TELEMETRY design tokens (shadcn/ui, Tailwind v4).
 
-  Professional operations software: light cool-neutral surfaces, white cards
-  with soft shadows, ONE warm coral accent reserved for primary actions and the
-  current selection. A small semantic status vocabulary carries meaning:
-    verified (green) · review (amber) · linked (violet) · minor (gold)
-    · critical (coral-red).
-  Matches the reference "Evidence workspace" screens. No gradients, no glow.
+  Dark industrial substrate: deactivated-CRT black surfaces, white phosphor
+  type, ONE hazard-red accent reserved for primary actions and selection.
+  Monospaced typography dominates; macro headings are Archivo Black.
+  Square geometry everywhere (--radius: 0), no gradients, no soft shadows,
+  simulated scanlines over the whole console.
 */
 :root {
-  --radius: 0.875rem;
+  --radius: 0rem;
 
-  /* Cool near-white page; white cards sit above it. */
-  --background: oklch(0.968 0.0035 264);
-  --foreground: oklch(0.248 0.021 267);
+  --background: #0a0a0a;
+  --foreground: #eaeaea;
 
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.248 0.021 267);
+  --card: #111111;
+  --card-foreground: #eaeaea;
 
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.248 0.021 267);
+  --popover: #111111;
+  --popover-foreground: #eaeaea;
 
-  /* Single accent: warm coral / terracotta. */
-  --primary: oklch(0.645 0.168 38);
-  --primary-foreground: oklch(0.99 0.006 60);
+  /* Single accent: aviation hazard red. */
+  --primary: #ff2a2a;
+  --primary-foreground: #0a0a0a;
 
-  --secondary: oklch(0.952 0.004 264);
-  --secondary-foreground: oklch(0.3 0.02 267);
+  --secondary: #1a1a1a;
+  --secondary-foreground: #eaeaea;
 
-  --muted: oklch(0.958 0.004 264);
-  /* Dark enough for metadata to clear WCAG AA (>=4.5:1) on white and on muted. */
-  --muted-foreground: oklch(0.512 0.017 266);
+  --muted: #161616;
+  --muted-foreground: #9c9c96;
 
-  --accent: oklch(0.952 0.004 264);
-  --accent-foreground: oklch(0.3 0.02 267);
+  --accent: #1a1a1a;
+  --accent-foreground: #eaeaea;
 
-  --destructive: oklch(0.585 0.204 27.5);
-  --destructive-foreground: oklch(0.99 0 0);
+  --destructive: #ff2a2a;
+  --destructive-foreground: #0a0a0a;
 
-  /* Semantic status ramp (fg = text/dot, soft = pill background). */
-  --verified: oklch(0.556 0.106 164);
-  --verified-soft: oklch(0.955 0.032 165);
-  --review: oklch(0.64 0.135 66);
-  --review-soft: oklch(0.96 0.04 82);
-  --linked: oklch(0.545 0.161 290);
-  --linked-soft: oklch(0.958 0.026 292);
-  --minor: oklch(0.635 0.114 82);
-  --minor-soft: oklch(0.957 0.038 90);
-  --critical: oklch(0.585 0.204 27.5);
-  --critical-soft: oklch(0.955 0.033 27);
+  /* Semantic status ramp (fg = text/dot, soft = flat panel wash). */
+  --verified: #58c15c;
+  --verified-soft: rgb(88 193 92 / 0.14);
+  --review: #d9a13b;
+  --review-soft: rgb(217 161 59 / 0.14);
+  --linked: #8f7be8;
+  --linked-soft: rgb(143 123 232 / 0.14);
+  --minor: #cba84a;
+  --minor-soft: rgb(203 168 74 / 0.14);
+  --critical: #ff4a3d;
+  --critical-soft: rgb(255 74 61 / 0.16);
 
   --success: var(--verified);
-  --success-foreground: oklch(0.99 0 0);
+  --success-foreground: #0a0a0a;
   --warning: var(--review);
-  --warning-foreground: oklch(0.248 0.021 267);
+  --warning-foreground: #0a0a0a;
 
-  --border: oklch(0.916 0.004 264);
-  --input: oklch(0.916 0.004 264);
-  --ring: oklch(0.645 0.168 38);
+  --border: #262626;
+  --input: #3a3a3a;
+  --ring: #ff2a2a;
 
   /* Knowledge-graph node hues (consumed by the force graph in TS too). */
-  --node-asset: oklch(0.645 0.168 38);
-  --node-component: oklch(0.55 0.05 240);
-  --node-signal: oklch(0.635 0.114 82);
-  --node-record: oklch(0.556 0.106 164);
-  --node-permit: oklch(0.5 0.09 190);
-  --node-person: oklch(0.545 0.161 290);
+  --node-asset: #ff2a2a;
+  --node-component: #5b8dbe;
+  --node-signal: #cba84a;
+  --node-record: #58c15c;
+  --node-permit: #3fa8a0;
+  --node-person: #8f7be8;
 }
 
 .dark {
-  --background: oklch(0.18 0.008 267);
-  --foreground: oklch(0.96 0.004 264);
+  --background: #0a0a0a;
+  --foreground: #eaeaea;
 
-  --card: oklch(0.216 0.01 267);
-  --card-foreground: oklch(0.96 0.004 264);
+  --card: #111111;
+  --card-foreground: #eaeaea;
 
-  --popover: oklch(0.216 0.01 267);
-  --popover-foreground: oklch(0.96 0.004 264);
+  --popover: #111111;
+  --popover-foreground: #eaeaea;
 
-  --primary: oklch(0.685 0.17 40);
-  --primary-foreground: oklch(0.18 0.008 267);
+  --primary: #ff2a2a;
+  --primary-foreground: #0a0a0a;
 
-  --secondary: oklch(0.27 0.01 267);
-  --secondary-foreground: oklch(0.96 0.004 264);
+  --secondary: #1a1a1a;
+  --secondary-foreground: #eaeaea;
 
-  --muted: oklch(0.27 0.01 267);
-  --muted-foreground: oklch(0.71 0.012 266);
+  --muted: #161616;
+  --muted-foreground: #9c9c96;
 
-  --accent: oklch(0.27 0.01 267);
-  --accent-foreground: oklch(0.96 0.004 264);
+  --accent: #1a1a1a;
+  --accent-foreground: #eaeaea;
 
-  --destructive: oklch(0.62 0.2 27);
-  --destructive-foreground: oklch(0.99 0 0);
+  --destructive: #ff2a2a;
+  --destructive-foreground: #0a0a0a;
 
-  --verified: oklch(0.68 0.12 164);
-  --verified-soft: oklch(0.32 0.06 165);
-  --review: oklch(0.74 0.13 70);
-  --review-soft: oklch(0.34 0.07 74);
-  --linked: oklch(0.68 0.15 290);
-  --linked-soft: oklch(0.32 0.07 291);
-  --minor: oklch(0.72 0.12 85);
-  --minor-soft: oklch(0.33 0.06 88);
-  --critical: oklch(0.66 0.19 28);
-  --critical-soft: oklch(0.33 0.09 28);
+  --verified: #58c15c;
+  --verified-soft: rgb(88 193 92 / 0.14);
+  --review: #d9a13b;
+  --review-soft: rgb(217 161 59 / 0.14);
+  --linked: #8f7be8;
+  --linked-soft: rgb(143 123 232 / 0.14);
+  --minor: #cba84a;
+  --minor-soft: rgb(203 168 74 / 0.14);
+  --critical: #ff4a3d;
+  --critical-soft: rgb(255 74 61 / 0.16);
 
   --success: var(--verified);
-  --success-foreground: oklch(0.18 0.008 267);
+  --success-foreground: #0a0a0a;
   --warning: var(--review);
-  --warning-foreground: oklch(0.18 0.008 267);
+  --warning-foreground: #0a0a0a;
 
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 14%);
-  --ring: oklch(0.685 0.17 40);
+  --border: #262626;
+  --input: #3a3a3a;
+  --ring: #ff2a2a;
 
-  --node-asset: oklch(0.7 0.17 40);
-  --node-component: oklch(0.68 0.06 240);
-  --node-signal: oklch(0.74 0.12 85);
-  --node-record: oklch(0.7 0.12 164);
-  --node-permit: oklch(0.66 0.09 190);
-  --node-person: oklch(0.7 0.15 291);
+  --node-asset: #ff2a2a;
+  --node-component: #5b8dbe;
+  --node-signal: #cba84a;
+  --node-record: #58c15c;
+  --node-permit: #3fa8a0;
+  --node-person: #8f7be8;
 }
 
 @theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
+  /* Mechanical rigidity: every radius collapses to zero. */
+  --radius-sm: 0rem;
+  --radius-md: 0rem;
+  --radius-lg: 0rem;
+  --radius-xl: 0rem;
+  --radius-2xl: 0rem;
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -170,14 +168,17 @@
   --color-ring: var(--ring);
 
   --font-sans:
-    'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
-    sans-serif;
-  --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Consolas, monospace;
+    'JetBrains Mono', ui-monospace, 'SF Mono', Consolas, monospace;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Consolas, monospace;
+  --font-display: 'Archivo Black', Impact, 'Arial Black', sans-serif;
 
-  --shadow-soft: 0 1px 2px oklch(0.4 0.02 267 / 0.04),
-    0 4px 16px oklch(0.4 0.02 267 / 0.05);
-  --shadow-lift: 0 2px 4px oklch(0.4 0.02 267 / 0.05),
-    0 12px 32px oklch(0.4 0.02 267 / 0.09);
+  /* Brutalism: borders carry structure, shadows carry nothing. */
+  --shadow-sm: 0 0 #0000;
+  --shadow-md: 0 0 #0000;
+  --shadow-lg: 0 0 #0000;
+  --shadow-xl: 0 0 #0000;
+  --shadow-soft: 0 0 #0000;
+  --shadow-lift: 0 0 #0000;
 
   --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -189,6 +190,7 @@
 
   html {
     -webkit-text-size-adjust: 100%;
+    scrollbar-color: #3a3a3a #0a0a0a;
   }
 
   body {
@@ -196,10 +198,37 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
-    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    letter-spacing: 0.01em;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+  }
+
+  /* CRT sweep — sits above everything, never intercepts input. */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent 0 2px,
+      rgb(0 0 0 / 0.11) 2px 4px
+    );
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+    background: #0a0a0a;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #3a3a3a;
+    border: 2px solid #0a0a0a;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--primary);
   }
 
   h1,
@@ -213,7 +242,8 @@
   }
 
   ::selection {
-    background: oklch(0.645 0.168 38 / 0.22);
+    background: var(--primary);
+    color: var(--primary-foreground);
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -229,15 +259,11 @@
 }
 
 @layer components {
-  /* Highlighter mark behind hero headings, as in the reference. */
+  /* Hazard slab behind hero headings. */
   .mark-accent {
-    background: linear-gradient(
-      transparent 12%,
-      oklch(0.645 0.168 38 / 0.24) 12%,
-      oklch(0.645 0.168 38 / 0.24) 88%,
-      transparent 88%
-    );
-    padding-inline: 0.15em;
+    background: var(--primary);
+    color: var(--primary-foreground);
+    padding-inline: 0.18em;
     box-decoration-break: clone;
     -webkit-box-decoration-break: clone;
   }

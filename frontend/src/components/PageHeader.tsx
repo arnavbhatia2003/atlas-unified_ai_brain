@@ -24,10 +24,12 @@ export function PageHeader({
       )}
     >
       <div className="min-w-0">
-        {/* eyebrow + description are intentionally not rendered — pages show
-            only the main title (per design direction). Props kept optional so
-            existing call sites don't need to change. */}
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-[1.75rem]">
+        {/* Console tag row + display title. eyebrow/description props stay
+            accepted for backwards compatibility but are not rendered. */}
+        <p className="mb-2 text-[10px] font-medium uppercase tracking-[0.26em] text-muted-foreground">
+          [ ATLAS<span className="text-primary">//OPS</span> ]
+        </p>
+        <h1 className="font-display text-2xl uppercase leading-none tracking-tight sm:text-[1.75rem]">
           {title}
         </h1>
       </div>

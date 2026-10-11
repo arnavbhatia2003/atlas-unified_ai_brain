@@ -50,3 +50,7 @@ Thumbs.db
 
 # ── Model / HF caches (should never be in-repo) ──────────────────────────
 **/.cache/
+
+# Local research cache and development logs
+.firecrawl/
+.logs/

@@ -2,12 +2,12 @@ import type { NodeType } from './types'
 
 /** Node dot colors by type (hex, since the canvas renderer needs literals). */
 export const NODE_COLORS: Record<NodeType, string> = {
-  asset: '#d9583b', // coral — canonical equipment
+  asset: '#ff2a2a', // hazard red — canonical equipment
   record: '#2f9e7e', // green — source records / documents
   permit: '#2f8f9e', // (rules render teal)
   rule: '#2f8f9e', // teal — permits / rules
   signal: '#c2922a', // gold — sensors / signals
-  failure: '#c0405a', // red — failure modes
+  failure: '#ff4a3d', // red — failure modes
   cause: '#c06a2b', // amber — root causes
   work_order: '#6b7280', // slate — work orders
   identifier: '#7a5cd0', // violet — identifiers

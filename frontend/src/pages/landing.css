@@ -1,0 +1,1421 @@
+/*
+  ATLAS // INDUSTRIAL KNOWLEDGE INTELLIGENCE — landing page styles.
+  Ported 1:1 from the reference index.html. Every rule is scoped under
+  `.atlas-landing` so it never leaks into the app shell. The global CRT
+  scanline overlay already comes from index.css (body::after), so it is not
+  duplicated here. Keyframe names are l-prefixed to avoid Tailwind collisions.
+*/
+
+.atlas-landing {
+  --l-bg: #0a0a0a;
+  --l-bg-2: #0f0f0f;
+  --l-bg-3: #141414;
+  --l-fg: #eaeaea;
+  --l-dim: rgba(234, 234, 234, 0.58);
+  --l-faint: rgba(234, 234, 234, 0.34);
+  --l-line: #242424;
+  --l-line-strong: #3d3d3d;
+  --l-accent: #ff2a2a;
+  --l-green: #4af626;
+  --l-macro: 'Archivo Black', Impact, 'Arial Black', sans-serif;
+  --l-mono: 'JetBrains Mono', 'Courier New', monospace;
+  --l-serif: 'Playfair Display', Georgia, serif;
+  --l-ease: cubic-bezier(0.16, 1, 0.3, 1);
+
+  position: relative;
+  min-height: 100svh;
+  background: var(--l-bg);
+  color: var(--l-fg);
+  font-family: var(--l-mono);
+  font-size: 13.5px;
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+  padding-top: 60px;
+  overflow-x: clip;
+}
+.atlas-landing *,
+.atlas-landing *::before,
+.atlas-landing *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  border-radius: 0 !important;
+}
+.atlas-landing a {
+  color: inherit;
+  text-decoration: none;
+}
+.atlas-landing button {
+  font-family: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.atlas-landing ul,
+.atlas-landing ol {
+  list-style: none;
+}
+.atlas-landing :focus-visible {
+  outline: 2px solid var(--l-accent);
+  outline-offset: 3px;
+}
+.atlas-landing ::selection {
+  background: var(--l-accent);
+  color: #0a0a0a;
+}
+.atlas-landing section {
+  scroll-margin-top: 72px;
+}
+
+.atlas-landing .noise {
+  position: fixed;
+  inset: 0;
+  z-index: 9997;
+  pointer-events: none;
+  opacity: 0.055;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='256' height='256' filter='url(%23n)' opacity='.6'/%3E%3C/svg%3E");
+  background-size: 256px 256px;
+}
+
+/* ── chrome ─────────────────────────────────────────────────────────── */
+.atlas-landing .l-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 2px;
+  width: 0;
+  background: var(--l-accent);
+  z-index: 10000;
+}
+.atlas-landing .skip {
+  position: fixed;
+  top: -48px;
+  left: 16px;
+  z-index: 10001;
+  background: var(--l-accent);
+  color: #0a0a0a;
+  padding: 0.6rem 1rem;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  transition: top 0.2s;
+}
+.atlas-landing .skip:focus {
+  top: 12px;
+}
+
+.atlas-landing .tag {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--l-dim);
+}
+.atlas-landing .tag b {
+  color: var(--l-accent);
+  font-weight: 700;
+}
+
+.atlas-landing .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75em;
+  font-family: var(--l-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 1.05rem 1.9rem;
+  border: 1px solid var(--l-fg);
+  color: var(--l-fg);
+  background: transparent;
+  transition:
+    background 0.22s,
+    color 0.22s,
+    border-color 0.22s,
+    transform 0.22s var(--l-ease);
+}
+.atlas-landing .btn:hover {
+  background: var(--l-fg);
+  color: #0a0a0a;
+}
+.atlas-landing .btn--red {
+  background: var(--l-accent);
+  border-color: var(--l-accent);
+  color: #0a0a0a;
+}
+.atlas-landing .btn--red:hover {
+  background: var(--l-fg);
+  border-color: var(--l-fg);
+}
+.atlas-landing .btn--sm {
+  padding: 0.62rem 1.15rem;
+  font-size: 10.5px;
+}
+.atlas-landing .btn .arr {
+  transition: transform 0.25s var(--l-ease);
+}
+.atlas-landing .btn:hover .arr {
+  transform: translateX(5px);
+}
+
+/* ── nav ────────────────────────────────────────────────────────────── */
+.atlas-landing .l-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 900;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+  padding: 0 clamp(1rem, 3vw, 2.5rem);
+  background: var(--l-bg);
+  border-bottom: 1px solid var(--l-line-strong);
+}
+.atlas-landing .brand {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  flex-shrink: 0;
+}
+.atlas-landing .brand__mark {
+  width: 20px;
+  height: 20px;
+  background: var(--l-accent);
+  position: relative;
+  flex-shrink: 0;
+}
+.atlas-landing .brand__mark::after {
+  content: '';
+  position: absolute;
+  inset: 5px;
+  background: var(--l-bg);
+}
+.atlas-landing .brand__text {
+  font-family: var(--l-macro);
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+.atlas-landing .brand__text em {
+  font-style: normal;
+  color: var(--l-accent);
+}
+.atlas-landing .brand__sub {
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  color: var(--l-faint);
+  margin-top: 3px;
+  text-transform: uppercase;
+}
+.atlas-landing .nav__links {
+  display: flex;
+  gap: 2.2rem;
+}
+.atlas-landing .nav__links a {
+  position: relative;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--l-dim);
+  padding: 0.35rem 0;
+  transition: color 0.2s;
+}
+.atlas-landing .nav__links a::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 2px;
+  background: var(--l-accent);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.28s var(--l-ease);
+}
+.atlas-landing .nav__links a:hover {
+  color: var(--l-fg);
+}
+.atlas-landing .nav__links a:hover::after {
+  transform: scaleX(1);
+}
+.atlas-landing .nav__meta {
+  display: flex;
+  align-items: center;
+  gap: 1.4rem;
+}
+.atlas-landing .status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+}
+.atlas-landing .status i {
+  width: 8px;
+  height: 8px;
+  background: var(--l-green);
+  animation: l-pulse 1.6s steps(2) infinite;
+}
+.atlas-landing .clock {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--l-dim);
+  font-variant-numeric: tabular-nums;
+}
+.atlas-landing .burger {
+  display: none;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px;
+  margin-right: -10px;
+}
+.atlas-landing .burger span {
+  display: block;
+  width: 22px;
+  height: 2px;
+  background: var(--l-fg);
+  transition:
+    transform 0.25s var(--l-ease),
+    opacity 0.2s;
+}
+.atlas-landing .l-nav--open .burger span:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+.atlas-landing .l-nav--open .burger span:nth-child(2) {
+  opacity: 0;
+}
+.atlas-landing .l-nav--open .burger span:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+/* ── hero ───────────────────────────────────────────────────────────── */
+.atlas-landing .hero {
+  position: relative;
+  min-height: calc(100svh - 60px);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: clamp(1.5rem, 4vw, 3.5rem) clamp(1rem, 3vw, 2.5rem) 0;
+  border-bottom: 1px solid var(--l-line-strong);
+}
+.atlas-landing .cross {
+  position: absolute;
+  font-family: var(--l-mono);
+  font-size: 14px;
+  color: var(--l-faint);
+  user-select: none;
+  pointer-events: none;
+  line-height: 1;
+}
+.atlas-landing .cross--tl {
+  top: 14px;
+  left: 14px;
+}
+.atlas-landing .cross--tr {
+  top: 14px;
+  right: 14px;
+}
+.atlas-landing .cross--bl {
+  bottom: 14px;
+  left: 14px;
+}
+.atlas-landing .cross--br {
+  bottom: 14px;
+  right: 14px;
+}
+.atlas-landing .cross--ml {
+  top: 50%;
+  left: 14px;
+  transform: translateY(-50%);
+}
+.atlas-landing .cross--mr {
+  top: 50%;
+  right: 14px;
+  transform: translateY(-50%);
+}
+.atlas-landing .hero__top {
+  display: flex;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  padding-top: clamp(1rem, 3vw, 2rem);
+}
+.atlas-landing .hero__title {
+  font-family: var(--l-macro);
+  text-transform: uppercase;
+  font-size: clamp(2.55rem, 8.6vw, 10.5rem);
+  line-height: 0.92;
+  letter-spacing: -0.03em;
+  margin: clamp(1.5rem, 4vw, 3rem) 0 clamp(2rem, 5vw, 4rem);
+}
+.atlas-landing .hero__title span {
+  display: block;
+  white-space: nowrap;
+}
+.atlas-landing .stroke {
+  color: transparent;
+  -webkit-text-stroke: 2px var(--l-fg);
+}
+.atlas-landing .hero__title .sq {
+  display: inline-block;
+  width: 0.42em;
+  height: 0.42em;
+  background: var(--l-accent);
+  margin-left: 0.18em;
+}
+.atlas-landing .hero__foot {
+  display: grid;
+  grid-template-columns: minmax(260px, 520px) auto minmax(280px, 360px);
+  gap: clamp(1.5rem, 3vw, 3rem);
+  align-items: end;
+  padding-bottom: clamp(1.5rem, 3vw, 2.75rem);
+}
+.atlas-landing .hero__sub {
+  color: var(--l-dim);
+  text-transform: uppercase;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  line-height: 1.85;
+}
+.atlas-landing .hero__sub b {
+  color: var(--l-fg);
+}
+.atlas-landing .hero__ctas {
+  display: flex;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.atlas-landing .telemetry {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--l-line);
+  border: 1px solid var(--l-line);
+}
+.atlas-landing .telemetry > div {
+  background: var(--l-bg-2);
+  padding: 0.7rem 0.95rem;
+}
+.atlas-landing .telemetry dt {
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  color: var(--l-faint);
+  text-transform: uppercase;
+}
+.atlas-landing .telemetry dd {
+  font-size: 15px;
+  font-weight: 500;
+  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+}
+.atlas-landing .telemetry dd small {
+  font-size: 9px;
+  color: var(--l-dim);
+  letter-spacing: 0.1em;
+  margin-left: 0.3em;
+}
+
+/* ── marquee ────────────────────────────────────────────────────────── */
+.atlas-landing .marquee {
+  overflow: hidden;
+  border-bottom: 1px solid var(--l-line-strong);
+  background: var(--l-bg);
+}
+.atlas-landing .marquee__track {
+  display: flex;
+  width: max-content;
+  animation: l-marquee 30s linear infinite;
+}
+.atlas-landing .marquee__group {
+  display: flex;
+  align-items: center;
+}
+.atlas-landing .marquee span.mq-item {
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 0.85rem 1.4rem;
+  color: var(--l-dim);
+}
+.atlas-landing .marquee span.mq-sep {
+  color: var(--l-accent);
+  font-weight: 700;
+  padding: 0.85rem 0;
+}
+
+/* ── shared grid helpers ────────────────────────────────────────────── */
+.atlas-landing .gridlines {
+  display: grid;
+  gap: 1px;
+  background: var(--l-line);
+  border-block: 1px solid var(--l-line-strong);
+}
+.atlas-landing .gridlines > * {
+  background: var(--l-bg);
+}
+
+/* ── stats ──────────────────────────────────────────────────────────── */
+.atlas-landing .stats {
+  grid-template-columns: repeat(4, 1fr);
+}
+.atlas-landing .stat {
+  padding: clamp(1.6rem, 3.5vw, 3rem) clamp(1.2rem, 2.5vw, 2.2rem);
+  position: relative;
+}
+.atlas-landing .stat__label {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--l-dim);
+}
+.atlas-landing .stat__num {
+  display: block;
+  font-family: var(--l-macro);
+  font-size: clamp(2.5rem, 5.5vw, 5.25rem);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  margin: 0.9rem 0 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+.atlas-landing .stat__foot {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--l-faint);
+}
+
+/* ── sections ───────────────────────────────────────────────────────── */
+.atlas-landing .section {
+  padding: clamp(3.5rem, 7vw, 6.5rem) clamp(1rem, 3vw, 2.5rem);
+  border-bottom: 1px solid var(--l-line-strong);
+}
+.atlas-landing .sec-head {
+  display: grid;
+  grid-template-columns: auto 1fr minmax(220px, 340px);
+  gap: clamp(1.5rem, 4vw, 4rem);
+  align-items: end;
+  margin-bottom: clamp(2.5rem, 5vw, 4.5rem);
+}
+.atlas-landing .sec-head__tag {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--l-accent);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.atlas-landing .sec-head h2 {
+  font-family: var(--l-macro);
+  text-transform: uppercase;
+  font-size: clamp(2.2rem, 6vw, 5.75rem);
+  line-height: 0.92;
+  letter-spacing: -0.025em;
+}
+.atlas-landing .sec-head p {
+  color: var(--l-dim);
+  font-size: 12.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* ── capabilities ───────────────────────────────────────────────────── */
+.atlas-landing .cap-grid {
+  grid-template-columns: repeat(3, 1fr);
+  border: 1px solid var(--l-line-strong);
+}
+.atlas-landing .cap {
+  position: relative;
+  padding: clamp(1.5rem, 2.5vw, 2.2rem);
+  transition:
+    background 0.25s,
+    color 0.25s;
+  overflow: hidden;
+}
+.atlas-landing .cap__idx {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.8rem;
+  font-family: var(--l-macro);
+  font-size: clamp(3.4rem, 6vw, 5.5rem);
+  line-height: 1;
+  color: var(--l-fg);
+  opacity: 0.09;
+  transition: opacity 0.25s;
+  user-select: none;
+}
+.atlas-landing .cap h3 {
+  font-family: var(--l-macro);
+  text-transform: uppercase;
+  font-size: 1.45rem;
+  letter-spacing: 0.01em;
+  margin: 2.6rem 0 1rem;
+}
+.atlas-landing .cap p {
+  color: var(--l-dim);
+  font-size: 12.5px;
+  transition: color 0.25s;
+}
+.atlas-landing .cap__stat {
+  display: inline-block;
+  margin-top: 1.6rem;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  border: 1px solid var(--l-line-strong);
+  padding: 0.45rem 0.8rem;
+  transition:
+    border-color 0.25s,
+    color 0.25s;
+}
+.atlas-landing .cap::after {
+  content: '';
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  width: 9px;
+  height: 9px;
+  background: var(--l-accent);
+  transform: scale(0);
+  transform-origin: top left;
+  transition: transform 0.28s var(--l-ease);
+}
+.atlas-landing .cap:hover {
+  background: var(--l-fg);
+  color: #0a0a0a;
+}
+.atlas-landing .cap:hover .cap__idx {
+  opacity: 0.16;
+}
+.atlas-landing .cap:hover p {
+  color: rgba(10, 10, 10, 0.72);
+}
+.atlas-landing .cap:hover .cap__stat {
+  border-color: rgba(10, 10, 10, 0.45);
+}
+.atlas-landing .cap:hover::after {
+  transform: scale(1);
+}
+
+/* ── flagship modules ───────────────────────────────────────────────── */
+.atlas-landing .sysrow {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 2rem;
+  padding: clamp(2.2rem, 4vw, 3.5rem) 0;
+  border-bottom: 1px solid var(--l-line);
+  overflow: hidden;
+}
+.atlas-landing .sysrows {
+  border-top: 1px solid var(--l-line);
+}
+.atlas-landing .sysrow:last-child {
+  border-bottom: none;
+}
+.atlas-landing .sysrow__num {
+  position: absolute;
+  top: 50%;
+  right: -3%;
+  transform: translateY(-50%);
+  font-family: var(--l-macro);
+  font-size: clamp(7rem, 19vw, 19rem);
+  line-height: 0.8;
+  color: transparent;
+  -webkit-text-stroke: 1px rgba(234, 234, 234, 0.16);
+  pointer-events: none;
+  user-select: none;
+  transition: -webkit-text-stroke-color 0.3s;
+}
+.atlas-landing .sysrow.alt .sysrow__num {
+  left: -3%;
+  right: auto;
+}
+.atlas-landing .sysrow:hover .sysrow__num {
+  -webkit-text-stroke-color: rgba(255, 42, 42, 0.5);
+}
+.atlas-landing .sysrow__body {
+  max-width: 720px;
+  position: relative;
+  z-index: 1;
+}
+.atlas-landing .sysrow h3 {
+  font-family: var(--l-macro);
+  text-transform: uppercase;
+  font-size: clamp(1.7rem, 3.4vw, 2.9rem);
+  letter-spacing: -0.01em;
+  margin: 0.7rem 0 0.9rem;
+}
+.atlas-landing .sysrow__desc {
+  color: var(--l-dim);
+  max-width: 52ch;
+  margin-bottom: 1.6rem;
+}
+.atlas-landing .specs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, max-content));
+  gap: 1px;
+  background: var(--l-line);
+  width: max-content;
+  max-width: 100%;
+  border: 1px solid var(--l-line);
+}
+.atlas-landing .specs > div {
+  background: var(--l-bg);
+  padding: 0.6rem 0.9rem;
+}
+.atlas-landing .specs dt {
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--l-faint);
+}
+.atlas-landing .specs dd {
+  font-size: 12.5px;
+  font-weight: 500;
+  margin-top: 2px;
+}
+.atlas-landing .sysrow__link {
+  font-family: var(--l-macro);
+  font-size: clamp(1.2rem, 2.4vw, 2rem);
+  color: var(--l-faint);
+  transition:
+    color 0.25s,
+    transform 0.3s var(--l-ease);
+  position: relative;
+  z-index: 1;
+  padding: 0 0.5rem;
+}
+.atlas-landing .sysrow:hover .sysrow__link {
+  color: var(--l-accent);
+  transform: translateX(10px);
+}
+
+/* ── live telemetry ─────────────────────────────────────────────────── */
+.atlas-landing .term-wrap {
+  display: grid;
+  grid-template-columns: 1fr minmax(240px, 320px);
+  gap: 1px;
+  background: var(--l-line);
+  border: 1px solid var(--l-line-strong);
+}
+.atlas-landing .term__bar {
+  grid-column: 1/-1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--l-bg-3);
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid var(--l-line);
+}
+.atlas-landing .term__bar b {
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+}
+.atlas-landing .term__bar i {
+  font-style: normal;
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  color: var(--l-faint);
+}
+.atlas-landing .term__body {
+  background: #070707;
+  padding: 1.1rem 1.2rem;
+  height: 380px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+.atlas-landing .term__body p {
+  font-size: 11.5px;
+  line-height: 1.9;
+  letter-spacing: 0.04em;
+  color: var(--l-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.atlas-landing .term__body p.warn {
+  color: var(--l-accent);
+}
+.atlas-landing .term__cursor {
+  display: inline-block;
+  width: 8px;
+  height: 14px;
+  background: var(--l-fg);
+  vertical-align: text-bottom;
+  animation: l-pulse 1s steps(2) infinite;
+}
+.atlas-landing .term-side {
+  background: var(--l-bg-2);
+  padding: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+.atlas-landing .term-side h3 {
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: var(--l-faint);
+  text-transform: uppercase;
+}
+.atlas-landing .term-side ul li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 11.5px;
+  border-bottom: 1px dashed var(--l-line);
+  padding: 0.55rem 0;
+}
+.atlas-landing .term-side ul li span:last-child {
+  font-weight: 700;
+}
+.atlas-landing .term-side ul li.hot span:last-child {
+  color: var(--l-accent);
+}
+.atlas-landing .readouts {
+  grid-template-columns: repeat(3, 1fr);
+  border: 1px solid var(--l-line-strong);
+  border-top: none;
+  margin-top: 1px;
+}
+.atlas-landing .readout {
+  padding: 1.3rem 1.4rem;
+}
+.atlas-landing .readout dt {
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--l-faint);
+}
+.atlas-landing .readout dd {
+  font-family: var(--l-macro);
+  font-size: clamp(1.5rem, 2.6vw, 2.3rem);
+  margin-top: 0.4rem;
+  font-variant-numeric: tabular-nums;
+}
+.atlas-landing .readout dd small {
+  font-family: var(--l-mono);
+  font-size: 10px;
+  color: var(--l-dim);
+  letter-spacing: 0.1em;
+  margin-left: 0.35em;
+}
+
+/* ── connectors ─────────────────────────────────────────────────────── */
+.atlas-landing .regions-intro {
+  display: grid;
+  grid-template-columns: 1fr minmax(240px, 380px);
+  gap: clamp(1.5rem, 4vw, 4rem);
+  align-items: end;
+  margin-bottom: clamp(2rem, 4vw, 3.5rem);
+}
+.atlas-landing .regions-intro h3 {
+  font-family: var(--l-macro);
+  text-transform: uppercase;
+  font-size: clamp(1.9rem, 4.6vw, 4.2rem);
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+}
+.atlas-landing .regions-intro h3 em {
+  font-style: normal;
+  color: transparent;
+  -webkit-text-stroke: 1.5px var(--l-fg);
+}
+.atlas-landing .regions-intro p {
+  color: var(--l-dim);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.atlas-landing .regions {
+  border-top: 1px solid var(--l-line-strong);
+}
+.atlas-landing .region {
+  display: grid;
+  grid-template-columns: 70px 1.4fr 1fr 1.2fr 90px 60px;
+  gap: 1rem;
+  align-items: center;
+  padding: 1.05rem 0.4rem;
+  border-bottom: 1px solid var(--l-line);
+  transition:
+    background 0.2s,
+    padding-left 0.25s var(--l-ease);
+}
+.atlas-landing .region:hover {
+  background: var(--l-bg-3);
+  padding-left: 1.1rem;
+}
+.atlas-landing .region__idx {
+  font-size: 10px;
+  color: var(--l-faint);
+  letter-spacing: 0.14em;
+}
+.atlas-landing .region__name {
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+.atlas-landing .region__nodes,
+.atlas-landing .region__geo {
+  font-size: 11px;
+  color: var(--l-dim);
+  letter-spacing: 0.08em;
+}
+.atlas-landing .region__lat {
+  text-align: right;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.atlas-landing .region__arrow {
+  color: var(--l-accent);
+  font-weight: 700;
+  opacity: 0;
+  transform: translateX(-8px);
+  transition:
+    opacity 0.25s,
+    transform 0.25s var(--l-ease);
+}
+.atlas-landing .region:hover .region__arrow {
+  opacity: 1;
+  transform: none;
+}
+.atlas-landing .barcode {
+  height: 44px;
+  margin-top: 2.2rem;
+  max-width: 420px;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      var(--l-fg) 0 2px,
+      transparent 2px 6px,
+      var(--l-fg) 6px 7px,
+      transparent 7px 13px,
+      var(--l-fg) 13px 17px,
+      transparent 17px 21px
+    ),
+    repeating-linear-gradient(90deg, var(--l-fg) 0 1px, transparent 1px 29px);
+  opacity: 0.8;
+}
+
+/* ── deployment topology ────────────────────────────────────────────── */
+.atlas-landing .proc {
+  grid-template-columns: repeat(3, 1fr);
+  border: 1px solid var(--l-line-strong);
+}
+.atlas-landing .proc-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: clamp(1.5rem, 2.5vw, 2.2rem);
+}
+.atlas-landing .proc-card__tag {
+  font-size: 9.5px;
+  letter-spacing: 0.2em;
+  color: var(--l-faint);
+  text-transform: uppercase;
+}
+.atlas-landing .proc-card h3 {
+  font-family: var(--l-macro);
+  text-transform: uppercase;
+  font-size: clamp(1.5rem, 2.6vw, 2rem);
+  letter-spacing: 0.01em;
+  margin: 0.45rem 0 0;
+}
+.atlas-landing .proc-card__price {
+  font-family: var(--l-macro);
+  font-size: clamp(1.7rem, 2.8vw, 2.5rem);
+  line-height: 1;
+  margin: 1.3rem 0 0.6rem;
+}
+.atlas-landing .proc-card__unit {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: var(--l-dim);
+  text-transform: uppercase;
+  margin-bottom: 1.4rem;
+}
+.atlas-landing .proc-card ul {
+  flex: 1;
+  margin-bottom: 1.9rem;
+}
+.atlas-landing .proc-card ul li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px dashed var(--l-line);
+  padding: 0.55rem 0;
+  font-size: 11.5px;
+  color: var(--l-dim);
+}
+.atlas-landing .proc-card ul li span:last-child {
+  color: var(--l-fg);
+  font-weight: 700;
+  text-align: right;
+}
+.atlas-landing .proc-card__cta {
+  display: inline-flex;
+  justify-content: center;
+}
+.atlas-landing .proc-card--hot {
+  background: var(--l-fg) !important;
+  color: #0a0a0a;
+}
+.atlas-landing .proc-card--hot::before {
+  content: 'OPTIMAL';
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  background: var(--l-accent);
+  color: #0a0a0a;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  padding: 0.5rem 0.85rem;
+}
+.atlas-landing .proc-card--hot .proc-card__tag,
+.atlas-landing .proc-card--hot .proc-card__unit {
+  color: rgba(10, 10, 10, 0.62);
+}
+.atlas-landing .proc-card--hot ul li {
+  border-bottom-color: rgba(10, 10, 10, 0.28);
+  color: rgba(10, 10, 10, 0.68);
+}
+.atlas-landing .proc-card--hot ul li span:last-child {
+  color: #0a0a0a;
+}
+.atlas-landing .proc-card--hot::after {
+  content: '';
+  position: absolute;
+  top: 44px;
+  left: 10px;
+  width: 9px;
+  height: 9px;
+  background: var(--l-accent);
+}
+
+/* ── benchmark dispatches ───────────────────────────────────────────── */
+.atlas-landing .news {
+  border-top: 1px solid var(--l-line-strong);
+}
+.atlas-landing .news-row {
+  display: grid;
+  grid-template-columns: 88px 108px 1fr 56px;
+  gap: 1rem;
+  align-items: center;
+  padding: 1.15rem 0.4rem;
+  border-bottom: 1px solid var(--l-line);
+  transition:
+    background 0.2s,
+    padding-left 0.25s var(--l-ease);
+}
+.atlas-landing .news-row:hover {
+  background: var(--l-bg-3);
+  padding-left: 1.1rem;
+}
+.atlas-landing .news-row__idx {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--l-accent);
+}
+.atlas-landing .news-row__date {
+  font-size: 10.5px;
+  color: var(--l-dim);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+}
+.atlas-landing .news-row__head {
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-size: 12.5px;
+}
+.atlas-landing .news-row__arrow {
+  color: var(--l-accent);
+  font-weight: 700;
+  opacity: 0;
+  transform: translateX(-8px);
+  transition:
+    opacity 0.25s,
+    transform 0.25s var(--l-ease);
+}
+.atlas-landing .news-row:hover .news-row__arrow {
+  opacity: 1;
+  transform: none;
+}
+
+/* ── manifesto / careers ────────────────────────────────────────────── */
+.atlas-landing .manifesto {
+  padding: clamp(4.5rem, 9vw, 8.5rem) clamp(1rem, 3vw, 2.5rem);
+  text-align: center;
+  border-bottom: 1px solid var(--l-line-strong);
+  position: relative;
+  overflow: hidden;
+}
+.atlas-landing .manifesto blockquote {
+  font-family: var(--l-serif);
+  font-style: italic;
+  font-weight: 600;
+  font-size: clamp(1.9rem, 5.4vw, 4.6rem);
+  line-height: 1.18;
+  letter-spacing: -0.01em;
+  max-width: 20ch;
+  margin: 0 auto 2.4rem;
+  -webkit-mask-image: repeating-linear-gradient(0deg, #000 0 3px, rgba(0, 0, 0, 0.38) 3px 4px);
+  mask-image: repeating-linear-gradient(0deg, #000 0 3px, rgba(0, 0, 0, 0.38) 3px 4px);
+}
+.atlas-landing .manifesto blockquote b {
+  color: var(--l-accent);
+  font-weight: 700;
+}
+.atlas-landing .manifesto cite {
+  font-style: normal;
+  font-size: 10.5px;
+  letter-spacing: 0.22em;
+  color: var(--l-dim);
+  text-transform: uppercase;
+}
+.atlas-landing .manifesto .cross--tl,
+.atlas-landing .manifesto .cross--tr,
+.atlas-landing .manifesto .cross--bl,
+.atlas-landing .manifesto .cross--br {
+  font-size: 18px;
+}
+
+.atlas-landing .hazard {
+  height: 12px;
+  background: repeating-linear-gradient(-45deg, var(--l-accent) 0 14px, #0a0a0a 14px 28px);
+  border-block: 1px solid var(--l-line-strong);
+}
+.atlas-landing .careers {
+  padding: clamp(4rem, 8vw, 7.5rem) clamp(1rem, 3vw, 2.5rem);
+  text-align: center;
+}
+.atlas-landing .careers h2 {
+  font-family: var(--l-macro);
+  text-transform: uppercase;
+  font-size: clamp(3rem, 10vw, 9.5rem);
+  line-height: 0.9;
+  letter-spacing: -0.03em;
+}
+.atlas-landing .careers h2 em {
+  font-style: normal;
+  color: transparent;
+  -webkit-text-stroke: 2px var(--l-fg);
+}
+.atlas-landing .careers p {
+  margin: 1.8rem auto 2.4rem;
+  max-width: 52ch;
+  color: var(--l-dim);
+  text-transform: uppercase;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+}
+.atlas-landing .careers__note {
+  margin-top: 1.6rem;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: var(--l-faint);
+}
+
+/* ── footer ─────────────────────────────────────────────────────────── */
+.atlas-landing footer {
+  border-top: 1px solid var(--l-line-strong);
+}
+.atlas-landing .foot-grid {
+  grid-template-columns: 1.5fr repeat(3, minmax(140px, 1fr)) 1.4fr;
+  border-bottom: 1px solid var(--l-line);
+}
+.atlas-landing .foot-col {
+  padding: clamp(1.8rem, 3vw, 2.6rem) clamp(1.2rem, 2vw, 2rem);
+}
+.atlas-landing .foot-col:first-child {
+  border-right: 1px solid var(--l-line);
+}
+.atlas-landing .foot-col h4 {
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--l-faint);
+  margin-bottom: 1.2rem;
+}
+.atlas-landing .foot-col ul li {
+  margin-bottom: 0.55rem;
+}
+.atlas-landing .foot-col ul a {
+  font-size: 12px;
+  color: var(--l-dim);
+  letter-spacing: 0.06em;
+  transition:
+    color 0.2s,
+    padding-left 0.2s;
+}
+.atlas-landing .foot-col ul a:hover {
+  color: var(--l-accent);
+  padding-left: 0.4rem;
+}
+.atlas-landing .foot-brand .brand {
+  margin-bottom: 1.2rem;
+}
+.atlas-landing .foot-brand p {
+  font-size: 11px;
+  color: var(--l-dim);
+  letter-spacing: 0.05em;
+  max-width: 36ch;
+}
+.atlas-landing .news-form {
+  display: flex;
+  border: 1px solid var(--l-line-strong);
+  margin-top: 0.9rem;
+}
+.atlas-landing .news-form input {
+  flex: 1;
+  min-width: 0;
+  background: var(--l-bg);
+  border: none;
+  color: var(--l-fg);
+  font-family: var(--l-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.06em;
+  padding: 0.85rem 0.95rem;
+}
+.atlas-landing .news-form input::placeholder {
+  color: var(--l-faint);
+}
+.atlas-landing .news-form input:focus {
+  outline: none;
+}
+.atlas-landing .news-form button {
+  background: var(--l-accent);
+  color: #0a0a0a;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 0 1.1rem;
+  letter-spacing: 0.1em;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+.atlas-landing .news-form button:hover {
+  background: var(--l-fg);
+}
+.atlas-landing .news-form button.sent {
+  background: var(--l-green);
+}
+.atlas-landing .news-note {
+  font-size: 9.5px;
+  color: var(--l-faint);
+  letter-spacing: 0.14em;
+  margin-top: 0.7rem;
+  text-transform: uppercase;
+}
+.atlas-landing .foot-bottom {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.2rem 2.5rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.4rem clamp(1rem, 3vw, 2.5rem);
+  background: var(--l-bg-2);
+}
+.atlas-landing .symbols {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+  font-family: var(--l-macro);
+  font-size: 1.5rem;
+  line-height: 1;
+}
+.atlas-landing .symbols i {
+  width: 1px;
+  height: 22px;
+  background: var(--l-accent);
+  font-style: normal;
+  font-size: 0;
+}
+.atlas-landing .legal {
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  color: var(--l-faint);
+  text-transform: uppercase;
+}
+
+/* ── reveal ─────────────────────────────────────────────────────────── */
+.atlas-landing [data-reveal] {
+  opacity: 0;
+  transform: translateY(26px);
+  transition:
+    opacity 0.8s var(--l-ease),
+    transform 0.8s var(--l-ease);
+  transition-delay: var(--d, 0s);
+}
+.atlas-landing [data-reveal].in {
+  opacity: 1;
+  transform: none;
+}
+
+/* ── keyframes ──────────────────────────────────────────────────────── */
+@keyframes l-marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+@keyframes l-pulse {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+/* ── responsive ─────────────────────────────────────────────────────── */
+@media (max-width: 1180px) {
+  .atlas-landing .hero__foot {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      'sub sub'
+      'ctas tel';
+  }
+  .atlas-landing .hero__sub {
+    grid-area: sub;
+  }
+  .atlas-landing .hero__ctas {
+    grid-area: ctas;
+    justify-content: start;
+  }
+  .atlas-landing .telemetry {
+    grid-area: tel;
+  }
+  .atlas-landing .nav__links {
+    display: none;
+  }
+  .atlas-landing .l-nav--open .nav__links {
+    display: flex;
+    position: absolute;
+    top: 60px;
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    gap: 0;
+    background: var(--l-bg);
+    border-bottom: 1px solid var(--l-line-strong);
+  }
+  .atlas-landing .l-nav--open .nav__links a {
+    padding: 1.1rem clamp(1rem, 3vw, 2.5rem);
+    border-top: 1px solid var(--l-line);
+    font-size: 12px;
+  }
+  .atlas-landing .burger {
+    display: flex;
+  }
+  .atlas-landing .clock {
+    display: none;
+  }
+}
+@media (max-width: 900px) {
+  .atlas-landing .cap-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .atlas-landing .proc {
+    grid-template-columns: 1fr;
+  }
+  .atlas-landing .stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .atlas-landing .sec-head {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+  .atlas-landing .sec-head p {
+    max-width: 56ch;
+  }
+  .atlas-landing .term-wrap {
+    grid-template-columns: 1fr;
+  }
+  .atlas-landing .regions-intro {
+    grid-template-columns: 1fr;
+  }
+  .atlas-landing .region {
+    grid-template-columns: 54px 1.4fr 1fr 80px 40px;
+  }
+  .atlas-landing .region__geo {
+    display: none;
+  }
+  .atlas-landing .sysrow__num {
+    opacity: 0.6;
+  }
+  .atlas-landing .foot-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .atlas-landing .foot-col:first-child {
+    grid-column: 1/-1;
+    border-right: none;
+    border-bottom: 1px solid var(--l-line);
+  }
+}
+@media (max-width: 620px) {
+  .atlas-landing {
+    font-size: 13px;
+  }
+  .atlas-landing .hero__title span {
+    white-space: normal;
+  }
+  .atlas-landing .cap-grid {
+    grid-template-columns: 1fr;
+  }
+  .atlas-landing .readouts {
+    grid-template-columns: 1fr;
+  }
+  .atlas-landing .hero__foot {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      'sub'
+      'ctas'
+      'tel';
+  }
+  .atlas-landing .status span {
+    display: none;
+  }
+  .atlas-landing .btn--sm.nav-cta {
+    display: none;
+  }
+  .atlas-landing .region {
+    grid-template-columns: 44px 1.3fr 1fr 46px;
+    font-size: 11px;
+  }
+  .atlas-landing .region__nodes {
+    display: none;
+  }
+  .atlas-landing .news-row {
+    grid-template-columns: 76px 1fr 36px;
+  }
+  .atlas-landing .news-row__date {
+    display: none;
+  }
+  .atlas-landing .symbols {
+    font-size: 1.15rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .atlas-landing *,
+  .atlas-landing *::before,
+  .atlas-landing *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .atlas-landing [data-reveal] {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .atlas-landing .marquee__track {
+    animation: none;
+    transform: none;
+  }
+}

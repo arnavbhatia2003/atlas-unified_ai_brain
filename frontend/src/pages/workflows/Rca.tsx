@@ -155,11 +155,11 @@ export function Rca() {
               >
                 <span
                   className={cn(
-                    'flex size-5 items-center justify-center rounded-full text-xs',
+                    'flex size-5 items-center justify-center text-xs',
                     done
-                      ? 'bg-verified text-white'
+                      ? 'bg-verified text-background'
                       : active
-                        ? 'bg-primary text-white'
+                        ? 'bg-primary text-background'
                         : 'bg-secondary text-muted-foreground',
                   )}
                 >

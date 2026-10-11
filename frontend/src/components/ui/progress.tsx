@@ -19,12 +19,12 @@ function Progress({
       aria-valuemin={0}
       aria-valuemax={100}
       className={cn(
-        'h-1.5 w-full overflow-hidden rounded-full bg-secondary',
+        'h-1.5 w-full overflow-hidden bg-secondary',
         className,
       )}
     >
       <div
-        className={cn('h-full rounded-full transition-[width] duration-500', fill)}
+        className={cn('h-full transition-[width] duration-500', fill)}
         style={{
           width: `${clamped}%`,
           transitionTimingFunction: 'var(--ease-out-quint)',

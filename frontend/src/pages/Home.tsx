@@ -37,7 +37,7 @@ export function Home() {
   return (
     <>
       <div className="mb-8">
-        <h1 className="text-3xl font-semibold tracking-tight">
+        <h1 className="font-display text-3xl uppercase tracking-tight">
           <span className="mark-accent">{greeting()}</span>
         </h1>
         <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground">
@@ -73,7 +73,7 @@ export function Home() {
         <div>
           <div className="mb-3 flex items-end justify-between">
             <div>
-              <h2 className="text-sm font-semibold">Knowledge graph preview</h2>
+              <h2 className="font-display text-sm uppercase">Knowledge graph preview</h2>
               <p className="text-sm text-muted-foreground">
                 Select a node to inspect the shared evidence record.
               </p>
@@ -127,7 +127,7 @@ export function Home() {
         </div>
 
         <div>
-          <h2 className="mb-3 text-sm font-semibold">Start an analysis</h2>
+          <h2 className="mb-3 font-display text-sm uppercase">Start an analysis</h2>
           <div className="flex flex-col gap-3">
             <WorkflowLink
               to="/workflows/rca"
@@ -153,7 +153,7 @@ export function Home() {
 
       {/* Recent evidence */}
       <section>
-        <h2 className="text-sm font-semibold">Recent evidence</h2>
+        <h2 className="font-display text-sm uppercase">Recent evidence</h2>
         <p className="mb-4 text-sm text-muted-foreground">
           The latest source records added to the index.
         </p>
@@ -196,7 +196,7 @@ function MetricCard({
       {loading ? (
         <Skeleton className="h-9 w-12" />
       ) : (
-        <span className="text-3xl font-semibold tracking-tight tabular-nums">
+        <span className="font-display text-3xl tracking-tight tabular-nums">
           {value}
         </span>
       )}
@@ -219,7 +219,7 @@ function WorkflowLink({
   return (
     <Link
       to={to}
-      className="group flex items-start gap-3 rounded-xl border border-border/60 bg-card p-4 shadow-soft transition-colors hover:border-primary/40"
+      className="group flex items-start gap-3 border border-border bg-card p-4 transition-colors hover:border-primary"
     >
       <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-secondary text-muted-foreground transition-colors group-hover:bg-primary/10 group-hover:text-primary">
         {icon}

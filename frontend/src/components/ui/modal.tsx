@@ -45,13 +45,13 @@ function Modal({
       aria-modal="true"
     >
       <div
-        className="absolute inset-0 bg-foreground/25 backdrop-blur-[1px] motion-safe:animate-in motion-safe:fade-in"
+        className="absolute inset-0 bg-black/70 motion-safe:animate-in motion-safe:fade-in"
         onClick={onClose}
       />
       <div
         className={cn(
-          'relative z-10 flex max-h-[88vh] w-full flex-col rounded-t-2xl border border-border bg-card shadow-lift',
-          'sm:mx-4 sm:w-full sm:max-w-lg sm:rounded-2xl sm:max-h-[85vh]',
+          'relative z-10 flex max-h-[88vh] w-full flex-col border border-border bg-card',
+          'sm:mx-4 sm:w-full sm:max-w-lg sm:max-h-[85vh]',
           'motion-safe:animate-in motion-safe:slide-in-from-bottom-4 sm:motion-safe:zoom-in-95 sm:motion-safe:slide-in-from-bottom-0',
           className,
         )}
@@ -60,7 +60,7 @@ function Modal({
           <div className="flex items-start justify-between gap-4 px-5 pt-5">
             <div className="space-y-1">
               {title && (
-                <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
+                <h2 className="font-display text-lg uppercase tracking-tight">{title}</h2>
               )}
               {description && (
                 <p className="text-sm text-muted-foreground">{description}</p>

@@ -4,7 +4,7 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
 const badgeVariants = cva(
-  'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap',
+  'inline-flex items-center gap-1.5 border border-transparent px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.14em] whitespace-nowrap',
   {
     variants: {
       variant: {
@@ -50,7 +50,7 @@ function StatusDot({
   }
   return (
     <span
-      className={cn('inline-block size-2 rounded-full', color[tone], className)}
+      className={cn('inline-block size-2', color[tone], className)}
       {...props}
     />
   )

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { NavLink } from 'react-router-dom'
+import { Link, NavLink } from 'react-router-dom'
 import {
   Boxes,
   ClipboardCheck,
   Home,
+  LogOut,
   MessageSquareText,
   PanelLeft,
   Plug,
@@ -13,7 +14,6 @@ import {
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { ShaderBackground } from '@/components/ShaderBackground'
 
 interface NavItem {
   to: string
@@ -23,7 +23,7 @@ interface NavItem {
 }
 
 const PRIMARY: NavItem[] = [
-  { to: '/', label: 'Home', short: 'Home', icon: Home },
+  { to: '/home', label: 'Home', short: 'Home', icon: Home },
   { to: '/graph', label: 'Knowledge graph', short: 'Graph', icon: Share2 },
   { to: '/ask', label: 'Ask Copilot', short: 'Ask', icon: MessageSquareText },
   { to: '/workflows', label: 'Workflows', short: 'Work', icon: SquareStack },
@@ -36,17 +36,22 @@ const SECONDARY: NavItem[] = [
 ]
 
 function Brand() {
-  // The source PNG (1536x1024) has large transparent padding around the "Atlas"
-  // script. We clip to just the wordmark so it renders large and tight.
   return (
-    <div className="overflow-hidden" style={{ width: 122, height: 52 }}>
-      <img
-        src="/atlas-logo.png"
-        alt="Atlas"
-        draggable={false}
-        className="max-w-none select-none"
-        style={{ width: 144, marginLeft: -10, marginTop: -16 }}
-      />
+    <div className="flex select-none items-center gap-2.5">
+      <span
+        aria-hidden
+        className="flex size-6 shrink-0 items-center justify-center bg-primary font-display text-xs leading-none text-primary-foreground"
+      >
+        A
+      </span>
+      <span className="leading-none">
+        <span className="block font-display text-base uppercase tracking-tight">
+          Atlas
+        </span>
+        <span className="mt-1 block text-[9px] uppercase tracking-[0.24em] text-muted-foreground">
+          Asset Intelligence
+        </span>
+      </span>
     </div>
   )
 }
@@ -56,15 +61,14 @@ function SideNavLink({ item, collapsed }: { item: NavItem; collapsed: boolean })
   return (
     <NavLink
       to={item.to}
-      end={item.to === '/'}
       title={collapsed ? item.label : undefined}
       className={({ isActive }) =>
         cn(
-          'group relative flex items-center rounded-xl text-sm font-medium transition-colors',
+          'group relative flex items-center text-xs font-medium uppercase tracking-[0.14em] transition-colors',
           collapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-3 py-2.5',
           isActive
             ? 'bg-secondary text-foreground'
-            : 'text-muted-foreground hover:bg-secondary/70 hover:text-foreground',
+            : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
         )
       }
     >
@@ -72,7 +76,7 @@ function SideNavLink({ item, collapsed }: { item: NavItem; collapsed: boolean })
         <>
           <span
             className={cn(
-              'absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-full bg-primary transition-opacity',
+              'absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 bg-primary transition-opacity',
               isActive ? 'opacity-100' : 'opacity-0',
             )}
             aria-hidden
@@ -93,10 +97,9 @@ function BottomTab({ item }: { item: NavItem }) {
   return (
     <NavLink
       to={item.to}
-      end={item.to === '/'}
       className={({ isActive }) =>
         cn(
-          'flex flex-1 flex-col items-center justify-center gap-1 rounded-lg py-1.5 text-[11px] font-medium transition-colors',
+          'flex flex-1 flex-col items-center justify-center gap-1 py-1.5 text-[10px] font-medium uppercase tracking-wider transition-colors',
           isActive ? 'text-primary' : 'text-muted-foreground',
         )
       }
@@ -121,13 +124,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       className="min-h-svh"
       style={{ ['--sidebar-w' as string]: collapsed ? '4.5rem' : '16rem' }}
     >
-      {/* Animated shader background — sits behind everything, ignores input */}
-      <ShaderBackground />
-
-      {/* Desktop sidebar — a frosted card-surface panel, collapsible to a rail */}
+      {/* Desktop sidebar — a solid instrument panel, collapsible to a rail */}
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-30 hidden flex-col gap-6 border-r border-border/60 bg-card/80 py-5 backdrop-blur-md transition-[width,padding] duration-200 ease-out md:flex',
+          'fixed inset-y-0 left-0 z-30 hidden flex-col gap-6 border-r border-border bg-card py-5 transition-[width,padding] duration-200 ease-out md:flex',
           collapsed ? 'w-[4.5rem] px-2' : 'w-64 px-4',
         )}
       >
@@ -154,7 +154,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </nav>
         <div className="flex flex-col gap-1">
           {!collapsed && (
-            <p className="px-3 pb-1 text-xs font-medium text-muted-foreground/70">
+            <p className="px-3 pb-1 text-[10px] font-medium uppercase tracking-[0.24em] text-muted-foreground">
               Records
             </p>
           )}
@@ -162,10 +162,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <SideNavLink key={item.to} item={item} collapsed={collapsed} />
           ))}
         </div>
+
+        {/* Back to the public landing page */}
+        <div className="mt-auto flex flex-col gap-1">
+          <Link
+            to="/"
+            title={collapsed ? 'Exit to landing page' : undefined}
+            className={cn(
+              'group flex items-center text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground',
+              collapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-3 py-2.5',
+            )}
+          >
+            <LogOut className="size-4.5 shrink-0" aria-hidden />
+            {!collapsed && 'Exit to landing'}
+          </Link>
+        </div>
       </aside>
 
       {/* Mobile top bar */}
-      <header className="sticky top-0 z-30 flex items-center border-b border-border/70 bg-background/85 px-4 py-3 backdrop-blur md:hidden">
+      <header className="sticky top-0 z-30 flex items-center border-b border-border bg-background px-4 py-3 md:hidden">
         <Brand />
       </header>
 
@@ -175,7 +190,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </main>
 
       {/* Mobile bottom tab bar */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 flex items-stretch gap-1 border-t border-border/70 bg-background/90 px-2 py-1.5 backdrop-blur md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-30 flex items-stretch gap-1 border-t border-border bg-background px-2 py-1.5 md:hidden">
         {PRIMARY.map((item) => (
           <BottomTab key={item.to} item={item} />
         ))}

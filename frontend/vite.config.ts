@@ -11,10 +11,6 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
-  // Pre-bundle the shaders engine so the lazy dynamic import resolves in dev.
-  optimizeDeps: {
-    include: ['shaders/react'],
-  },
   server: {
     port: 5173,
   },

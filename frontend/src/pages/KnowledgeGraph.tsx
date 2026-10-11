@@ -73,7 +73,11 @@ export function KnowledgeGraph() {
   const toggle = (t: NodeType) =>
     setDisabled((prev) => {
       const next = new Set(prev)
-      next.has(t) ? next.delete(t) : next.add(t)
+      if (next.has(t)) {
+        next.delete(t)
+      } else {
+        next.add(t)
+      }
       return next
     })
 
@@ -207,7 +211,7 @@ export function KnowledgeGraph() {
               >
                 <span className="flex items-center gap-2.5 font-medium">
                   <span
-                    className="size-2.5 rounded-full"
+                    className="size-2.5"
                     style={{ background: nodeColor(t) }}
                     aria-hidden
                   />

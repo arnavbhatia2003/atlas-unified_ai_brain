@@ -55,7 +55,7 @@ export function Review() {
       ) : !data || data.length === 0 ? (
         <Card className="py-12">
           <div className="flex flex-col items-center gap-2 px-5 text-center">
-            <span className="flex size-11 items-center justify-center rounded-full bg-verified-soft text-verified">
+            <span className="flex size-11 items-center justify-center bg-verified-soft text-verified">
               <CheckCircle2 className="size-5" />
             </span>
             <p className="text-sm font-medium">All clear</p>
@@ -168,7 +168,7 @@ function CandidateCard({ c }: { c: ReviewCandidate }) {
           {fields.map(([k, v]) => (
             <span
               key={k}
-              className="rounded-full bg-secondary px-2 py-0.5 text-[11px] text-secondary-foreground"
+              className="bg-secondary px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-secondary-foreground"
             >
               {k.replace(/_/g, ' ')}: {String(v)}
             </span>

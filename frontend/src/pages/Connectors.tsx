@@ -94,7 +94,7 @@ export function Connectors() {
       ) : !data || data.length === 0 ? (
         <Card className="py-12">
           <div className="flex flex-col items-center gap-2 px-5 text-center">
-            <span className="flex size-11 items-center justify-center rounded-full bg-secondary text-muted-foreground">
+            <span className="flex size-11 items-center justify-center bg-secondary text-muted-foreground">
               <Database className="size-5" />
             </span>
             <p className="text-sm font-medium">No sources connected</p>

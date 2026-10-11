@@ -18,6 +18,18 @@ source.**
 
 </div>
 
+This project combines the backend, tests, demo data, deployment files, and
+architecture documentation from
+[Arnav's Atlas repository](https://github.com/arnavbhatia2003/atlas-unified_ai_brain)
+with the dark industrial UI from
+[Sukhesh's Atlas repository](https://github.com/Sukhesh-Garg07/Atlas_project).
+Work in this repository's existing `frontend/`, `backend/`, and `docs/` folders.
+
+The public landing page is at `/`; the operational dashboard is at `/home`.
+Local development uses frontend port **5173** and backend port **8001**.
+Existing git-ignored `.env` files hold your local credentials and override model
+defaults; keep them when updating the source.
+
 ---
 
 ## The problem
@@ -56,6 +68,9 @@ guessing.**
 - **Compliance** — the at-risk list is a deterministic graph query, not a guess.
 
 ## Screenshots
+
+These screenshots document Arnav's original light interface. The current app
+keeps the same operational features with Sukhesh's dark styling and landing page.
 
 | Home | Knowledge graph |
 |---|---|

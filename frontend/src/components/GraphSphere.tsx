@@ -24,8 +24,8 @@ export interface GraphCanvasHandle {
   fit: () => void
 }
 
-const ACCENT = '#d9583b'
-const INK = '#20242e'
+const ACCENT = '#ff2a2a'
+const INK = '#eaeaea'
 // Above this zoom, every node shows its full label chip. Below it we only draw
 // dots + halos (an uncluttered overview), and labels appear just for the node
 // under focus (hover / selected / its neighbours).
@@ -252,7 +252,7 @@ export const GraphSphere = forwardRef<
         ctx.beginPath()
         ctx.moveTo(s.sx, s.sy)
         ctx.lineTo(t.sx, t.sy)
-        ctx.strokeStyle = active ? `rgba(217,88,59,${op})` : `rgba(120,125,135,${op})`
+        ctx.strokeStyle = active ? `rgba(255,42,42,${op})` : `rgba(150,150,144,${op})`
         ctx.lineWidth = active ? 2.5 : 1.1
         ctx.stroke()
         // relation label at midpoint — only for the focused node's edges
@@ -260,13 +260,13 @@ export const GraphSphere = forwardRef<
         if (rel && active) {
           const mx = (s.sx + t.sx) / 2, my = (s.sy + t.sy) / 2
           const fs = 11
-          ctx.font = `600 ${fs}px Inter, system-ui, sans-serif`
+          ctx.font = `600 ${fs}px "JetBrains Mono", ui-monospace, monospace`
           ctx.textAlign = 'center'
           ctx.textBaseline = 'middle'
           // white stroke halo (paint-order stroke) like the reference line-labels
           ctx.lineJoin = 'round'
           ctx.lineWidth = 5
-          ctx.strokeStyle = 'rgba(251,252,253,0.92)'
+          ctx.strokeStyle = 'rgba(10,10,10,0.92)'
           ctx.strokeText(rel, mx, my)
           ctx.fillStyle = ACCENT
           ctx.fillText(rel, mx, my)
@@ -304,7 +304,7 @@ export const GraphSphere = forwardRef<
           ctx.fill()
           ctx.beginPath()
           ctx.arc(p.sx, p.sy, dotR, 0, 2 * Math.PI)
-          ctx.fillStyle = isCluster ? '#8b93a3' : col
+          ctx.fillStyle = isCluster ? '#6e6e68' : col
           ctx.fill()
           if (selected) {
             ctx.strokeStyle = ACCENT
@@ -321,7 +321,7 @@ export const GraphSphere = forwardRef<
 
         // --- full chip ---
         const fs = Math.max(10, 12 * dScale)
-        ctx.font = `${selected || active ? 700 : 600} ${fs}px Inter, system-ui, sans-serif`
+        ctx.font = `${selected || active ? 700 : 500} ${fs}px "JetBrains Mono", ui-monospace, monospace`
         const label = nd.label || nd.id
         const tw = ctx.measureText(label).width
         const dotR = fs * 0.32
@@ -331,23 +331,18 @@ export const GraphSphere = forwardRef<
         const hch = fs + fs * 1.05
         const x = p.sx - wch / 2
         const y = p.sy - hch / 2
-        const r = hch / 2
+        const r = 0
 
         ctx.globalAlpha = alpha
-        if (dep > 0.45 || active) {
-          ctx.shadowColor = 'rgba(20,24,34,0.16)'
-          ctx.shadowBlur = (active ? 16 : 10) * dScale
-          ctx.shadowOffsetY = 3
-        }
         roundRect(ctx, x, y, wch, hch, r)
-        ctx.fillStyle = isCluster ? '#f4f5f7' : '#ffffff'
+        ctx.fillStyle = isCluster ? '#141414' : '#111111'
         ctx.fill()
         ctx.shadowColor = 'transparent'
         ctx.shadowBlur = 0
         ctx.shadowOffsetY = 0
         ctx.lineWidth = selected ? 2 : 1
         if (selected || active) ctx.strokeStyle = ACCENT
-        else ctx.strokeStyle = `rgba(120,125,135,${(isCluster ? 0.5 : 0.28) * alpha + 0.06})`
+        else ctx.strokeStyle = `rgba(234,234,234,${(isCluster ? 0.4 : 0.22) * alpha + 0.05})`
         if (isCluster) ctx.setLineDash([3, 2])
         roundRect(ctx, x, y, wch, hch, r)
         ctx.stroke()
@@ -361,13 +356,13 @@ export const GraphSphere = forwardRef<
         ctx.fill()
         ctx.beginPath()
         ctx.arc(dcx, dcy, dotR, 0, 2 * Math.PI)
-        ctx.fillStyle = isCluster ? '#8b93a3' : col
+        ctx.fillStyle = isCluster ? '#6e6e68' : col
         ctx.fill()
 
         // label
         ctx.textAlign = 'left'
         ctx.textBaseline = 'middle'
-        ctx.fillStyle = isCluster ? `rgba(91,97,110,${alpha})` : withAlpha(INK, alpha)
+        ctx.fillStyle = isCluster ? `rgba(234,234,234,${0.62 * alpha})` : withAlpha(INK, alpha)
         ctx.fillText(label, dcx + dotR + gap, dcy)
         ctx.globalAlpha = 1
 

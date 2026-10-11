@@ -64,7 +64,7 @@ function AssetInspector({ unifiedId }: { unifiedId: string }) {
       <div>
         <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
           <span
-            className="size-2.5 rounded-full"
+            className="size-2.5"
             style={{ background: nodeColor('asset') }}
             aria-hidden
           />
@@ -99,7 +99,7 @@ function AssetInspector({ unifiedId }: { unifiedId: string }) {
                   {a.sources.map((s) => (
                     <span
                       key={s}
-                      className="rounded-full bg-secondary px-2 py-0.5 text-[11px] text-secondary-foreground"
+                      className="bg-secondary px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-secondary-foreground"
                     >
                       {s}
                     </span>
@@ -326,13 +326,13 @@ function PlainInspector({ node, data }: { node: GraphNode; data: GraphData }) {
     <div className="space-y-4">
       <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
         <span
-          className="size-2.5 rounded-full"
+          className="size-2.5"
           style={{ background: nodeColor(node.type) }}
           aria-hidden
         />
         {NODE_TYPE_LABEL[node.type]}
       </div>
-      <h3 className="text-lg font-semibold tracking-tight">{node.label}</h3>
+      <h3 className="font-display text-lg uppercase tracking-tight">{node.label}</h3>
       <p className="font-mono text-xs text-muted-foreground">{node.id}</p>
 
       {relationships.length > 0 ? (
@@ -346,7 +346,7 @@ function PlainInspector({ node, data }: { node: GraphNode; data: GraphData }) {
                 </span>
                 <div className="flex items-center gap-2">
                   <span
-                    className="size-2 rounded-full"
+                    className="size-2"
                     style={{ background: nodeColor(r.other.type) }}
                     aria-hidden
                   />

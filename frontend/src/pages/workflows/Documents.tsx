@@ -42,9 +42,7 @@ function statusTone(status: string): 'verified' | 'review' | 'critical' | 'neutr
 
 export function Documents() {
   const [files, setFiles] = useState<File[]>([])
-  const [folder, setFolder] = useState(
-    'C:\\Users\\there\\Downloads\\langraph\\dataset-final-atlas',
-  )
+  const [folder, setFolder] = useState('')
   const [streaming, setStreaming] = useState(false)
   const [log, setLog] = useState<LogLine[]>([])
   const [status, setStatus] = useState('')

@@ -152,7 +152,7 @@ export function AskCopilot() {
                 <button
                   key={ex}
                   onClick={() => setInput(ex)}
-                  className="rounded-full border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+                  className="border border-border bg-card px-3 py-1.5 font-mono text-[11px] uppercase tracking-wider text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
                 >
                   {ex.length > 48 ? ex.slice(0, 48) + '…' : ex}
                 </button>
