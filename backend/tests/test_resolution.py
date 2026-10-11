@@ -39,7 +39,7 @@ def test_example1_clean_merge():
     assert len(res.clusters) == 1
     cluster = res.clusters[0]
     assert set(cluster.members) == {"A", "B", "C"}
-    assert cluster.decision == MergeDecision.AUTO_MERGED  # driven by 0.95 serial
+    assert cluster.decision != MergeDecision.AUTO_MERGED  # weakest membership controls approval
     # multi-valued identifiers preserved
     assert cluster.identifiers["serial_number"] == ["sn-4521987"]
     assert "00:80:f4:12:9a:3b" in cluster.identifiers["mac_address"]

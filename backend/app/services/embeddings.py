@@ -9,6 +9,7 @@ to exact-identifier (anchor) matching only.
 from __future__ import annotations
 
 import math
+import time
 import warnings
 from functools import lru_cache
 
@@ -38,11 +39,11 @@ class EmbeddingClient:
     def __init__(self, model: str) -> None:
         self.model = model
         self._embedder = None
-        self._failed = False
+        self._retry_at = 0.0
 
     @property
     def available(self) -> bool:
-        return not self._failed
+        return time.monotonic() >= self._retry_at
 
     def _embedder_or_load(self):
         if self._embedder is None:
@@ -58,18 +59,22 @@ class EmbeddingClient:
         All records are sent in ONE ``embed_documents`` call, so a batch of N
         records costs a single request against the shared NVIDIA rate budget.
         """
-        if self._failed or not texts:
+        if not self.available or not texts:
             return None
         try:
             # Draw one token from the shared NVIDIA budget (embeddings + chat)
             # before hitting the API, so we stay under the free-tier 40 rpm cap.
             from app.services.rate_limit import get_rate_limiter
 
-            get_rate_limiter().acquire(blocking=True)
-            # embed_documents uses input_type=passage (correct for symmetric match)
-            return self._embedder_or_load().embed_documents(list(texts))
+            embedder = self._embedder_or_load()
+            batch_size = getattr(embedder, "max_batch_size", 50)
+            vectors = []
+            for start in range(0, len(texts), batch_size):
+                get_rate_limiter().acquire(blocking=True)
+                vectors.extend(embedder.embed_documents(texts[start:start + batch_size]))
+            return vectors
         except Exception:
-            self._failed = True
+            self._retry_at = time.monotonic() + 10
             return None
 
     @traceable(run_type="embedding", name="nvidia-embed-query")
@@ -79,7 +84,7 @@ class EmbeddingClient:
         Used by the chatbot's grounded RAG path to search source_records. Returns
         the query vector, or None if the service is unavailable.
         """
-        if self._failed or not text.strip():
+        if not self.available or not text.strip():
             return None
         try:
             from app.services.rate_limit import get_rate_limiter
@@ -87,7 +92,7 @@ class EmbeddingClient:
             get_rate_limiter().acquire(blocking=True)
             return self._embedder_or_load().embed_query(text)
         except Exception:
-            self._failed = True
+            self._retry_at = time.monotonic() + 10
             return None
 
 
@@ -97,6 +102,8 @@ def get_embedding_client() -> EmbeddingClient:
 
 
 def cosine(a: list[float], b: list[float]) -> float:
+    if len(a) != len(b) or not a or not all(math.isfinite(x) for x in [*a, *b]):
+        return 0.0
     dot = sum(x * y for x, y in zip(a, b))
     na = math.sqrt(sum(x * x for x in a))
     nb = math.sqrt(sum(y * y for y in b))

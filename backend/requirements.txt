@@ -163,3 +163,8 @@ xlsxwriter==3.2.9
 xxhash==3.8.1
 yarl==1.24.5
 zstandard==0.25.0
+
+# Required by Docling RapidOCR for scanned PDFs.
+onnxruntime==1.31.0
+flatbuffers==25.12.19
+protobuf==7.36.2

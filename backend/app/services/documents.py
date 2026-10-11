@@ -1,27 +1,14 @@
-"""Document parsing (Docling) — turn any PDF into structured, provenance-tagged
-content that the SAME resolution pipeline can consume.
+"""PDF parsing with original-byte custody and page provenance.
 
-Design goals (per the generalization requirement — nothing here is tuned to a
-specific document):
-  * Docling parses the PDF into a `DoclingDocument`; we export three views, each
-    with {page, section} provenance:
-        - `tables`   : structured rows (fed to schema discovery like any source)
-        - `chunks`   : narrative passages grouped by section heading
-        - `markdown` : the full readable document (kept for the OKF/citation view)
-  * The full Docling serialization (`export_to_dict()`) is kept verbatim as the
-    DURABLE artifact — the chain-of-custody record saved before any extraction.
-  * Heavy + blocking: Docling loads ML models and does layout analysis, so the
-    converter is a lazy singleton and callers must run `parse_pdf` off the event
-    loop (it already hops to a thread). OCR is OFF by default (digital-native
-    PDFs) to avoid the largest model downloads; enable per call if needed.
-  * Graceful degradation: importing this module never imports Docling. A parse
-    attempt raises a clear error if Docling/models are unavailable, rather than
-    crashing the server.
+Selectable text uses PDFium; image-containing pages use a warmed, isolated
+Docling/RapidOCR worker. Call parse_pdf asynchronously. The legacy synchronous
+parse_pdf_bytes entry point remains available for native-text/demo callers.
 """
 
 from __future__ import annotations
 
 import asyncio
+import base64
 import hashlib
 import os
 import re
@@ -97,6 +84,8 @@ class ParsedDocument:
             "tables": len(self.tables),
             "chunks": len(self.chunks),
             "markdown_chars": len(self.markdown),
+            "ocr_pages": len(self.raw.get("ocr_pages", [])),
+            "unreadable_pages": len(self.raw.get("unreadable_pages", [])),
         }
 
 
@@ -113,6 +102,7 @@ def _get_converter(ocr: bool) -> Any:
     from docling.datamodel.pipeline_options import (
         PdfPipelineOptions,
         TableFormerMode,
+        RapidOcrOptions,
     )
     from docling.datamodel.settings import settings as docling_settings
     from docling.document_converter import DocumentConverter, PdfFormatOption
@@ -128,6 +118,8 @@ def _get_converter(ocr: bool) -> Any:
 
     opts = PdfPipelineOptions()
     opts.do_ocr = ocr
+    opts.ocr_options = RapidOcrOptions(lang=["english"], backend="onnxruntime")
+    opts.document_timeout = 180
     opts.do_table_structure = True
     # We never need rendered page/figure images — skip them to save memory.
     for attr in ("generate_page_images", "generate_picture_images"):
@@ -217,6 +209,7 @@ def _extract_chunks_and_outline(doc: Any) -> tuple[list[DocChunk], list[str]]:
             label = str(getattr(item, "label", "") or "").lower()
             text = str(getattr(item, "text", "") or "").strip()
             if not text:
+                empty_pages.append(pno + 1)
                 continue
             is_heading = "header" in label or label in ("title", "section_header")
             if is_heading:
@@ -232,6 +225,8 @@ def _extract_chunks_and_outline(doc: Any) -> tuple[list[DocChunk], list[str]]:
                 if text not in outline:
                     outline.append(text)
             else:
+                if buf and _page_of(item) != buf_page:
+                    flush()
                 if buf_page is None:
                     buf_page = _page_of(item)
                 buf.append(text)
@@ -276,7 +271,7 @@ def _chunks_from_markdown(md: str) -> tuple[list[DocChunk], list[str]]:
     return chunks, outline
 
 
-def _parse_pdf_textonly(data: bytes, filename: str) -> ParsedDocument:
+def _parse_pdf_textonly(data: bytes, filename: str, *, allow_empty: bool = False) -> ParsedDocument:
     """Low-memory fallback: extract text per page with pypdfium2 (NO rasterization,
     NO layout model), so large PDFs that OOM Docling's image pipeline still yield
     usable narrative text. Loses tables/section structure — labeled accordingly."""
@@ -286,13 +281,19 @@ def _parse_pdf_textonly(data: bytes, filename: str) -> ParsedDocument:
     chunks: list[DocChunk] = []
     md_parts: list[str] = []
     page_count = 0
+    image_pages = []
+    empty_pages = []
     idx = 0
     pdf = pdfium.PdfDocument(data)
     try:
         page_count = len(pdf)
+        if page_count > 1000:
+            raise ValueError("PDF exceeds the 1,000-page limit")
         for pno in range(page_count):
             page = pdf[pno]
             try:
+                if any(page.get_objects(filter=[pdfium.raw.FPDF_PAGEOBJ_IMAGE])):
+                    image_pages.append(pno + 1)
                 tp = page.get_textpage()
                 text = (tp.get_text_range() or "").strip()
                 tp.close()
@@ -316,6 +317,9 @@ def _parse_pdf_textonly(data: bytes, filename: str) -> ParsedDocument:
     finally:
         pdf.close()
 
+    if not chunks and not allow_empty:
+        raise ValueError("No readable text found. This PDF needs OCR; use a searchable PDF for document questions.")
+
     return ParsedDocument(
         filename=filename,
         sha256=digest,
@@ -326,7 +330,8 @@ def _parse_pdf_textonly(data: bytes, filename: str) -> ParsedDocument:
         sections=[],
         tables=[],
         chunks=chunks,
-        raw={"parser": "pypdfium2-text", "pages": page_count},
+        # shortcut: bounded PDFs live in JSON for byte recovery; move bytes to object storage for larger corpora.
+        raw={"parser": "pypdfium2-text", "pages": page_count, "image_pages": image_pages, "empty_pages": empty_pages, "original_pdf_b64": base64.b64encode(data).decode("ascii")},
     )
 
 
@@ -345,7 +350,7 @@ def parse_pdf_bytes(data: bytes, filename: str, *, ocr: bool = False) -> ParsedD
 
     # Master switch: on constrained hosts Docling/torch is disabled entirely and
     # every PDF goes through the low-memory text-only extractor.
-    if not _docling_enabled():
+    if not _docling_enabled() or not ocr:
         return _parse_pdf_textonly(data, filename)
 
     # Large PDFs OOM Docling's page-rasterization pipeline — and a native
@@ -401,6 +406,7 @@ def parse_pdf_bytes(data: bytes, filename: str, *, ocr: bool = False) -> ParsedD
             if fb.chunks:
                 return fb
 
+        raw["original_pdf_b64"] = base64.b64encode(data).decode("ascii")
         return ParsedDocument(
             filename=filename,
             sha256=digest,
@@ -419,9 +425,104 @@ def parse_pdf_bytes(data: bytes, filename: str, *, ocr: bool = False) -> ParsedD
         return _parse_pdf_textonly(data, filename)
 
 
+_ocr_worker = None
+_ocr_lock = asyncio.Lock()
+
+
+async def close_docling_worker() -> None:
+    global _ocr_worker
+    if _ocr_worker and _ocr_worker.returncode is None:
+        _ocr_worker.kill()
+        await _ocr_worker.wait()
+    _ocr_worker = None
+
+
+async def _start_docling_worker() -> None:
+    global _ocr_worker
+    import sys
+    if _ocr_worker and _ocr_worker.returncode is None:
+        return
+    _ocr_worker = await asyncio.create_subprocess_exec(
+        sys.executable, "-m", "app.services.document_worker", "--server",
+        stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL,
+    )
+    try:
+        ready = await asyncio.wait_for(_ocr_worker.stdout.readline(), timeout=180)
+        if ready.strip() != b"ATLAS_DOCLING_READY":
+            raise ValueError("Docling OCR worker could not initialize; verify full dependencies and model downloads")
+    except BaseException:
+        await close_docling_worker()
+        raise
+
+
+async def warm_docling_worker() -> None:
+    if _docling_enabled():
+        async with _ocr_lock:
+            await _start_docling_worker()
+
+
+async def _docling_pages(source: str, output: str, pages: list[int]) -> None:
+    import json
+    async with _ocr_lock:
+        try:
+            await _start_docling_worker()
+            _ocr_worker.stdin.write((json.dumps({"source":source,"output":output,"pages":pages}) + "\n").encode())
+            await _ocr_worker.stdin.drain()
+            done = await asyncio.wait_for(_ocr_worker.stdout.readline(), timeout=300)
+            if done.strip() != b"ATLAS_DOCLING_DONE":
+                raise ValueError("Docling OCR worker stopped; the durable PDF remains available for retry")
+        except BaseException:
+            await close_docling_worker()
+            raise
+
+
+async def parse_pdf_fast(data: bytes, filename: str) -> ParsedDocument:
+    """Native text plus original bytes, suitable for durable save before OCR."""
+    return await asyncio.to_thread(_parse_pdf_textonly, data, filename, allow_empty=True)
+
+
 async def parse_pdf(data: bytes, filename: str, *, ocr: bool = False) -> ParsedDocument:
-    """Async wrapper — runs the blocking Docling parse in a worker thread."""
-    return await asyncio.to_thread(parse_pdf_bytes, data, filename, ocr=ocr)
+    """Fast native text first; isolated Docling layout/OCR for pages containing images."""
+    import json
+    import tempfile
+    from pathlib import Path
+
+    parsed = await asyncio.to_thread(_parse_pdf_textonly, data, filename, allow_empty=True)
+    image_pages = parsed.raw.get("image_pages", [])
+    if image_pages or ocr:
+        if not _docling_enabled():
+            raise ValueError("PDF contains images/scans but Docling is disabled. Enable DOCLING_ENABLED and install the full requirements.")
+        selected = list(range(1, parsed.page_count + 1)) if ocr else image_pages
+        # Named files stay in this backend folder; only the isolated worker loads native ML models.
+        input_path = output_path = None
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".pdf", dir=Path(__file__).parents[2], delete=False) as f:
+                f.write(data); input_path = Path(f.name)
+            with tempfile.NamedTemporaryFile(suffix=".json", dir=Path(__file__).parents[2], delete=False) as f:
+                output_path = Path(f.name)
+            await _docling_pages(str(input_path), str(output_path), selected)
+            enriched = json.loads(output_path.read_text(encoding="utf-8"))
+            if "error_type" in enriched:
+                raise ValueError(f"Docling OCR failed ({enriched['error_type']}); the PDF is retained for retry")
+            replacement = [DocChunk(**c) for c in enriched["chunks"]]
+            replaced_pages = {c.page for c in replacement}
+            parsed.chunks = [c for c in parsed.chunks if c.page not in replaced_pages] + replacement
+            parsed.chunks.sort(key=lambda c: (c.page or 0, c.index))
+            for i, chunk in enumerate(parsed.chunks): chunk.index = i
+            parsed.tables = [DocTable(**t) for t in enriched["tables"]]
+            parsed.sections = enriched["sections"]
+            parsed.markdown = "\n\n".join(c.text for c in parsed.chunks)
+            parsed.parser = "pypdfium2+docling-ocr"
+            parsed.raw["ocr_pages"] = selected
+            parsed.raw["unreadable_pages"] = sorted(set(selected) - replaced_pages)
+        except asyncio.TimeoutError:
+            raise ValueError("Docling processing exceeded five minutes; split this scan into smaller PDFs.") from None
+        finally:
+            for path in (input_path, output_path):
+                if path: path.unlink(missing_ok=True)
+    if not parsed.chunks:
+        raise ValueError("No readable text found after parsing/OCR. Blank pages, handwriting or diagrams may need manual transcription.")
+    return parsed
 
 
 # --- (de)serialization for durable storage ---------------------------------

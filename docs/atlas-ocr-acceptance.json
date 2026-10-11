@@ -1,0 +1,19 @@
+{
+  "ok": true,
+  "parser": "pypdfium2+docling-ocr",
+  "pages": 1,
+  "seconds": 37.04,
+  "text": "Equipment SCAN-017. Inspection interval is 17 days.",
+  "raw_status": {
+    "parser": "pypdfium2-text",
+    "pages": 1,
+    "image_pages": [
+      1
+    ],
+    "empty_pages": [],
+    "ocr_pages": [
+      1
+    ],
+    "unreadable_pages": []
+  }
+}

@@ -32,6 +32,16 @@ defaults; keep them when updating the source.
 
 ---
 
+## Current acceptance and limitations
+
+PDF questions work without asset extraction. Selectable text uses the fast native
+parser; image pages use isolated Docling OCR. Original PDFs remain available at
+cited pages. See [project readiness](docs/project-readiness.md) for the teacher
+demonstration, requirements, setup checks and remaining industrial gaps, and
+[live PDF acceptance](docs/atlas-pdf-acceptance.json) for the bounded measured run.
+The [interactive assessment](docs/atlas-assessment.html) preserves the earlier
+audit baseline and links current remediation.
+
 ## The problem
 
 The same physical asset shows up in a dozen systems under a dozen different
@@ -40,9 +50,9 @@ shared key**. So "what do we actually know about this pump / server / line?"
 has no answer, and root-cause and compliance questions turn into manual
 archaeology.
 
-**Atlas resolves every source record to one canonical asset, extracts what
-happened to it, and reasons over the result — grounded in citations, never
-guessing.**
+**Atlas proposes canonical asset identities, extracts operational observations,
+and presents source-backed answers. Ambiguous matches and generated reasoning
+require review; the system does not guarantee complete or correct identity.**
 
 ## What it does
 

@@ -1,0 +1,65 @@
+{
+  "date": "2026-10-11",
+  "revision": "5491b78e480a8dd4adbdf34c3c7af6cc4361e9bf",
+  "report_sha256": "4b546e0a05d942f21c60ea7a06ac2e2b2288fd70c6db4797b021d5946a20db20",
+  "javascript_syntax": "pass",
+  "findings": 42,
+  "requirements": 27,
+  "scenarios": 8,
+  "code_references": 50,
+  "revision_pinned_sources": "pass",
+  "requirement_cross_links": "pass",
+  "local_artifact_links": "pass",
+  "offline_counterexamples": 9,
+  "architecture": {
+    "type": "architecture",
+    "validation": "9/9 showcase; zero errors and warnings",
+    "browser_evidence": "passed",
+    "visual_review": "passed (manual inspection of light/dark, routes and source passport)",
+    "correction_rounds": 1,
+    "specification_sha256": "aeb5ba2034a69cbf410c37914fd1cd131353c86a2591b7394ea6b799bd50ca1d",
+    "artifact_sha256": "0b59bc5f219cd3de3e131f2e9663381b4d51f58f1d18334405c3aee5ce01c9d0",
+    "retained_crossovers": 2
+  },
+  "report_browser_review": {
+    "controls_checked": [
+      "search",
+      "priority and area filters",
+      "expand",
+      "scenario selection",
+      "functional/nonfunctional and status filters",
+      "finding cross-link with focus",
+      "scale slider",
+      "theme",
+      "planning checkbox"
+    ],
+    "viewport_checks": [
+      {
+        "requested": [
+          390,
+          844
+        ],
+        "observed_width": 390,
+        "scroll_width": 375
+      },
+      {
+        "requested": [
+          1440,
+          900
+        ],
+        "observed_width": 1440,
+        "scroll_width": 1425
+      }
+    ],
+    "horizontal_overflow": false
+  },
+  "unchecked": [
+    "print-dialog output",
+    "JSON download file contents",
+    "industrial accuracy",
+    "load and penetration tests",
+    "hosted model answers",
+    "PDF/OCR quality",
+    "full independent paper ledger review"
+  ]
+}

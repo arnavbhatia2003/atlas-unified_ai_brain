@@ -33,7 +33,7 @@ def _build(model: str, temperature: float, max_tokens: int = 1024) -> ChatNVIDIA
         # Nemotron nano is a reasoning model — hidden reasoning consumes tokens
         # before the visible answer, so give enough headroom that the final JSON
         # answer isn't truncated.
-        max_tokens=max_tokens,
+        max_completion_tokens=max_tokens,
         # Share the single NVIDIA token bucket with embeddings so chat + embed
         # together never exceed the free-tier request budget.
         rate_limiter=get_rate_limiter(),

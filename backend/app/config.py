@@ -63,19 +63,19 @@ class Settings(BaseSettings):
     # ~1.9s despite its size, with strong agentic reasoning. All chat is streamed
     # (SSE) so perceived latency is time-to-first-token, not full completion.
     chat_model: str = Field(
-        default="nvidia/nemotron-3-ultra-550b-a55b", alias="CHAT_MODEL"
+        default="nvidia/nemotron-3-super-120b-a12b", alias="CHAT_MODEL"
     )
     # Optional lightweight model for high-frequency, low-stakes tasks (query
     # routing, quick classification) to conserve the shared rate budget.
     chat_fast_model: str = Field(
-        default="nvidia/nvidia-nemotron-nano-9b-v2", alias="CHAT_FAST_MODEL"
+        default="nvidia/nemotron-3-super-120b-a12b", alias="CHAT_FAST_MODEL"
     )
     chat_temperature: float = Field(default=0.2, alias="CHAT_TEMPERATURE")
 
     # Cross-encoder reranker (NVIDIA NIM) for the final precision pass in hybrid
     # retrieval. One call per query; reorders the fused candidate pool.
     rerank_model: str = Field(
-        default="nvidia/llama-nemotron-rerank-1b-v2", alias="RERANK_MODEL"
+        default="nvidia/llama-nemotron-rerank-vl-1b-v2", alias="RERANK_MODEL"
     )
 
 

@@ -49,6 +49,15 @@ async def _warm_embeddings() -> None:
         logger.warning("Embedding warm-up failed: %s", exc)
 
 
+async def _warm_docling() -> None:
+    from .services.documents import warm_docling_worker
+    try:
+        await warm_docling_worker()
+        logger.info("Docling OCR worker ready")
+    except Exception as exc:
+        logger.warning("Docling OCR warm-up unavailable (%s)", type(exc).__name__)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Create the Postgres pool on startup, tear it down on shutdown. If the DB
@@ -70,10 +79,14 @@ async def lifespan(app: FastAPI):
         raise
     # Warm the embedding endpoint in the background (does not block readiness).
     warmup_task = asyncio.create_task(_warm_embeddings())
+    docling_task = asyncio.create_task(_warm_docling())
     try:
         yield
     finally:
         warmup_task.cancel()
+        docling_task.cancel()
+        from .services.documents import close_docling_worker
+        await close_docling_worker()
         await close_pool()
 
 

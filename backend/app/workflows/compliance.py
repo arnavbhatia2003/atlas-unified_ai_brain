@@ -122,6 +122,8 @@ async def _default_reason(question: str, evidence: dict[str, Any]) -> dict[str, 
             "unresolved": [],
         }
     posture = str(data.get("posture", "")).strip().lower()
+    if at_risk:
+        posture = "at_risk"
     if posture not in ("compliant", "at_risk", "unknown"):
         posture = "at_risk" if at_risk else "unknown"
     return {
@@ -161,6 +163,8 @@ async def _asset_rule_status(
                    where w.source_id = s.source_id
                      and w.relation_type = 'HAS_WORK_ORDER'
                      and (w.metadata ->> 'status') = 'completed'
+        and (w.metadata->>'rule_id') in (s.target_id, substring(s.target_id from 6))
+        and (s.metadata->>'period' is null or w.metadata->>'period' = s.metadata->>'period')
                ) as satisfied
         from edges s
         where s.source_id = $1 and s.relation_type = $2

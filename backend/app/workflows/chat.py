@@ -41,6 +41,7 @@ from .rca import get_rca_graph
 from .resolve_mention import resolve_mention
 from .retrieval import (
     RetrievedRecord,
+    document_search,
     asset_facts,
     get_okf_bundle,
     graph_neighborhood,
@@ -259,10 +260,37 @@ _ASSET_SYSTEM = (
 )
 
 
-async def _stream_grounded_answer(system: str, human: str) -> str:
+async def _stream_grounded_answer(system: str, human: str, citations: set[str] | None = None) -> str:
     """Stream a reasoning model's answer, emitting its reasoning as 'thinking'
     events and the final answer as 'token' events (Claude/ChatGPT-style)."""
     model = resilient(get_fast_chat_model())
+    if citations is not None:
+        try:
+            raw = await model.ainvoke([
+                SystemMessage(content="detailed thinking off\n" + system + '\nReturn ONLY JSON: {"answerable": true|false, "answer": "answer text", "citations": ["exact source handle"]}. Every answerable answer must cite at least one supplied handle. Use answerable=false when the sources do not establish the requested information.'),
+                HumanMessage(content=human),
+            ])
+            data = _json_obj(raw.content if isinstance(raw.content, str) else str(raw.content))
+            if data.get("answerable") is False:
+                answer = "The retrieved PDF passages do not establish an answer to this question."
+            elif data.get("answerable") is True:
+                cited = data.get("citations", [])
+                if isinstance(cited, list):
+                    cited = [c.strip().removeprefix("[").removesuffix("]") if isinstance(c, str) else c for c in cited]
+                if not isinstance(cited, list) or not cited or not all(isinstance(c, str) and c in citations for c in cited):
+                    return ""
+                answer = str(data.get("answer") or "").strip()
+                if not answer:
+                    return ""
+                if any(c not in citations for c in re.findall(r"\[(PDF:[^\]]+)\]", answer)):
+                    return ""
+                answer += " " + " ".join(f"[{c}]" for c in dict.fromkeys(cited))
+            else:
+                return ""
+            emit("token", "", text=answer)
+            return answer
+        except Exception:
+            return ""
     parts: list[str] = []
     try:
         async for chunk in model.astream(
@@ -275,7 +303,8 @@ async def _stream_grounded_answer(system: str, human: str) -> str:
             piece = chunk.content or ""
             if piece:
                 parts.append(piece)
-                emit("token", "", text=piece)
+                if citations is None:
+                    emit("token", "", text=piece)
     except Exception:
         return ""
     return "".join(parts).strip()
@@ -357,6 +386,7 @@ async def _contradictions(conn: Any, record_ids: list[str]) -> list[str]:
 # --- state -----------------------------------------------------------------
 class ChatState(TypedDict, total=False):
     conn: Any
+    document_id: int | None
     message: str
     intent: str
     asset_hint: str | None
@@ -370,6 +400,10 @@ def build_chat_graph() -> Any:
         msg = state.get("message", "")
         # Explicit override (from the API) skips triage; otherwise triage decides
         # scope + intent, catching off-topic / injection / too-vague up front.
+        if _INJECTION_PAT.search(msg):
+            return {"stages": ["route"], "intent": "guard", "guard": {"scope": "injection"}}
+        if state.get("document_id"):
+            return {"stages": ["route"], "intent": "ask", "asset_hint": None}
         if state.get("intent"):
             intent = state["intent"]
             emit("route", f"Routing to '{intent}'", intent=intent)
@@ -448,7 +482,7 @@ def build_chat_graph() -> Any:
                     "answer": answer or "See the linked sources.",
                     "citations": [
                         {"id": r.citation, "unified_id": r.unified_id,
-                         "system": r.system, "similarity": r.similarity}
+                         "system": r.system, "similarity": r.similarity, **r.raw}
                         for r in records
                     ],
                     "confidence": round(min(1.0, top_sim if top_sim else 0.5), 2),
@@ -473,9 +507,12 @@ def build_chat_graph() -> Any:
         conn = state["conn"]
         message = state.get("message", "")
         emit("retrieve", "Hybrid search (vector + keyword + OKF bundles) with reranking")
-        records = await hybrid_search(conn, message, k=6)
+        document_id = state.get("document_id")
+        records = await document_search(conn, message, document_id)
+        if not document_id:
+            records += await hybrid_search(conn, message, k=6)
         facts = None
-        if state.get("asset_hint"):
+        if not document_id and state.get("asset_hint"):
             res = await resolve_mention(conn, state["asset_hint"])
             if res.asset:
                 facts = await asset_facts(conn, res.asset.unified_id)
@@ -501,7 +538,15 @@ def build_chat_graph() -> Any:
         emit("answer", "Answering from grounded sources")
         sources = _sources_block(records, facts_d)
         human = f"Sources:\n{sources}\n\nQuestion: {message}"
-        answer = await _stream_grounded_answer(_ASK_SYSTEM, human)
+        system = _ASK_SYSTEM if not document_id else (
+            "Answer the question using only the supplied PDF passages. Cite the exact bracketed PDF handles for each factual claim. "
+            "Preserve identifiers, dates, numbers and units exactly. Surface conflicting records. If information is absent, say so. "
+            "OCR may contain errors. Do not infer diagram meaning from text labels alone. " + _NO_INJECTION
+        )
+        answer = await _stream_grounded_answer(system, human, {r.citation for r in records} if document_id else None)
+        if not answer:
+            answer = "A cited answer could not be verified or the answer service is unavailable. Retrieved passages are shown below; these are source excerpts, not a generated answer.\n\n" + "\n\n".join(f"[{r.citation}] {r.text}" for r in records)
+            emit("token", "", text=answer)
         top_sim = max((r.similarity for r in records), default=0.0)
         confidence = round(min(1.0, top_sim if records else 0.5), 2)
         result = {
@@ -509,7 +554,7 @@ def build_chat_graph() -> Any:
             "answer": answer,
             "citations": [
                 {"id": r.citation, "unified_id": r.unified_id,
-                 "system": r.system, "similarity": r.similarity}
+                 "system": r.system, "similarity": r.similarity, **r.raw}
                 for r in records
             ],
             "confidence": confidence,
@@ -658,12 +703,12 @@ def get_chat_graph() -> Any:
 
 
 async def run_chat_events(
-    message: str, intent: str | None = None
+    message: str, intent: str | None = None, document_id: int | None = None
 ) -> AsyncIterator[str]:
     """Run the chatbot, streaming routing + status + answer tokens (SSE)."""
     pool = get_pool()
     async with pool.acquire() as conn:
-        state: ChatState = {"conn": conn, "message": message, "stages": []}
+        state: ChatState = {"conn": conn, "message": message, "document_id": document_id, "stages": []}
         if intent:
             state["intent"] = intent
         yield sse({"step": "start", "message": "Received your message"})

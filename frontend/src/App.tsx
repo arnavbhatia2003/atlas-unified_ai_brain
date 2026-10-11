@@ -25,7 +25,7 @@ function AppRoutes() {
       <Routes>
         <Route path="/home" element={<Home />} />
         <Route path="/graph" element={<KnowledgeGraph />} />
-        <Route path="/ask" element={<AskCopilot />} />
+        <Route path="/ask" element={<AskCopilot key={location.search} />} />
         <Route path="/workflows" element={<Workflows />} />
         <Route path="/connectors" element={<Connectors />} />
         <Route path="/workflows/ingest" element={<Navigate to="/connectors" replace />} />

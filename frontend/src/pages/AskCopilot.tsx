@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { ArrowRight, ChevronDown, History, Loader2, Maximize2, Square } from 'lucide-react'
 
 import {
@@ -9,7 +10,7 @@ import {
 import { Badge, StatusDot } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
-import { streamWorkflow } from '@/lib/api'
+import { API_URL, streamWorkflow } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import type { ChatResult, Citation, ComplianceResult, RcaResult } from '@/lib/types'
 
@@ -39,6 +40,8 @@ type Turn = UserTurn | AssistantTurn
 const uid = () => Math.random().toString(36).slice(2)
 
 export function AskCopilot() {
+  const [params] = useSearchParams()
+  const documentId = Number(params.get("document")) || undefined
   const [input, setInput] = useState('')
   const [turns, setTurns] = useState<Turn[]>([])
   // A routed RCA/Compliance result opens as a workflow window over the chat.
@@ -46,6 +49,8 @@ export function AskCopilot() {
   const [historyKind, setHistoryKind] = useState<'rca' | 'compliance' | null>(null)
   const abortRef = useRef<AbortController | null>(null)
   const thinkStartRef = useRef<number | null>(null)
+
+  useEffect(() => () => abortRef.current?.abort(), [])
 
   const streaming = turns.some((t) => t.role === 'assistant' && t.streaming)
   const hasThread = turns.length > 0
@@ -94,8 +99,9 @@ export function AskCopilot() {
     const controller = new AbortController()
     abortRef.current = controller
     thinkStartRef.current = null
+    let completed = false
     try {
-      for await (const ev of streamWorkflow('/api/chat', { message }, controller.signal)) {
+      for await (const ev of streamWorkflow('/api/chat', { message, document_id: documentId }, controller.signal)) {
         if (ev.step === 'thinking') {
           if (thinkStartRef.current == null) thinkStartRef.current = Date.now()
           patchAssistant(aId, (t) => ({ ...t, thinking: t.thinking + (ev.text ?? '') }))
@@ -107,14 +113,18 @@ export function AskCopilot() {
             thoughtMs: t.thoughtMs ?? elapsed,
             answer: t.answer + (ev.text ?? ''),
           }))
+        } else if (ev.step === 'error') {
+          throw new Error(ev.message || 'The workflow failed')
         } else if (ev.step === 'complete') {
+          completed = true
           const r = (ev.result as ChatResult) ?? null
-          patchAssistant(aId, (t) => ({ ...t, result: r }))
+          patchAssistant(aId, (t) => ({ ...t, result: r, answer: t.answer || r?.answer || '' }))
           if (r && (r.intent === 'rca' || r.intent === 'compliance')) setWorkflow(r)
         } else if (ev.message) {
           patchAssistant(aId, (t) => ({ ...t, status: ev.message as string }))
         }
       }
+      if (!completed) throw new Error("The connection ended before an answer was completed. Please retry.")
     } catch (e) {
       if (!(e instanceof DOMException && e.name === 'AbortError')) {
         const msg = e instanceof Error ? e.message : 'Request failed'
@@ -142,13 +152,14 @@ export function AskCopilot() {
 
   return (
     <>
+      {documentId && <p className="mb-3 text-sm text-muted-foreground">Answering only from PDF {documentId}. Citations identify the page and passage.</p>}
       {!hasThread ? (
         // Empty state: centered composer + quick questions (Claude-style).
         <div className="flex min-h-[62svh] flex-col items-center justify-center">
           <div className="w-full max-w-2xl">
             {composer}
             <div className="mt-3 flex flex-wrap justify-center gap-2">
-              {EXAMPLES.map((ex) => (
+              {(documentId ? ['What inspection intervals are specified in this PDF?', 'Does this PDF contain conflicting pressure specifications? Cite the pages.'] : EXAMPLES).map((ex) => (
                 <button
                   key={ex}
                   onClick={() => setInput(ex)}
@@ -505,16 +516,16 @@ function AssessmentDetails({ result }: { result: ChatResult }) {
           {citations.length > 0 && (
             <div>
               <p className="mb-2 text-xs font-medium text-muted-foreground">
-                Sources · {citations.length} checked
+                Retrieved sources · {citations.length}
                 {contradictions.length > 0 &&
                   ` · ${contradictions.length} contradiction${contradictions.length === 1 ? '' : 's'}`}
               </p>
               <div className="flex flex-wrap gap-2">
                 {citations.map((c) => (
                   <Badge key={c.id} variant="linked" className="font-mono">
-                    {c.id}
-                    {c.similarity > 0 && (
-                      <span className="opacity-60">{Math.round(c.similarity * 100)}%</span>
+                    {c.id.startsWith("PDF:") ? <a target="_blank" rel="noreferrer" href={`${API_URL}/api/documents/${c.id.split(":")[1]}/file#page=${c.id.split(":")[2].slice(1)}`}>{c.id}</a> : c.id}
+                    {!c.id.startsWith("PDF:") && c.similarity > 0 && (
+                      <span className="opacity-60">score {c.similarity.toFixed(3)}</span>
                     )}
                   </Badge>
                 ))}

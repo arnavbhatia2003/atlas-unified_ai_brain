@@ -27,6 +27,7 @@ from typing import Any, Protocol
 from .documents import (
     ParsedDocument,
     parse_pdf,
+    parse_pdf_fast,
     parsed_from_dict,
     parsed_to_dict,
     sha256_of,
@@ -94,6 +95,9 @@ async def ingest_document(
     # browser navigated away before background jobs existed) recovers on re-run.
     existing = await store.sha_status(sha)
     if existing == "processed":
+        save_original = getattr(store, "save_original", None)
+        if save_original is not None:
+            await save_original(sha, data)
         return IngestResult(status="skipped", parse_id=None, parsed=None)
 
     # --- 1. parse (PRE-durable) — a failure here persists NOTHING ----------
@@ -110,7 +114,10 @@ async def ingest_document(
             doc_type = None
 
     # --- 2. DURABLE SAVE (chain-of-custody boundary) -----------------------
-    parse_id = await store.save_parse(system, parsed, doc_type)
+    try:
+        parse_id = await store.save_parse(system, parsed, doc_type)
+    except Exception as exc:
+        return IngestResult(status="error", parse_id=None, parsed=parsed, error=f"Durable save failed: {type(exc).__name__}")
 
     # --- 3. post-save processing — a failure here KEEPS the stored parse ---
     if post_save is not None:
@@ -133,14 +140,23 @@ class PgDocumentStore:
     never holds a pooled connection open.
     """
 
-    def __init__(self, pool: Any) -> None:
+    def __init__(self, pool: Any, extract_assets: bool = False) -> None:
         self._pool = pool
+        self._extract_assets = extract_assets
 
     async def sha_status(self, sha256: str) -> str | None:
         async with self._pool.acquire() as conn:
-            return await conn.fetchval(
-                "select status from document_parses where sha256 = $1", sha256
-            )
+            status = await conn.fetchval("select status from document_parses where sha256 = $1", sha256)
+            if self._extract_assets and status == "processed":
+                extracted = await conn.fetchval("select exists(select 1 from doc_extractions where sha256=$1)", sha256)
+                if not extracted:
+                    return "parsed"
+            return status
+
+    async def save_original(self, sha256: str, data: bytes) -> None:
+        import base64
+        async with self._pool.acquire() as conn:
+            await conn.execute("update document_parses set parsed=jsonb_set(parsed, '{raw,original_pdf_b64}', to_jsonb($2::text)) where sha256=$1", sha256, base64.b64encode(data).decode("ascii"))
 
     async def save_parse(
         self, system: str, parsed: ParsedDocument, doc_type: str | None
@@ -152,7 +168,7 @@ class PgDocumentStore:
                     (system, filename, sha256, doc_type, parser, page_count,
                      title, parsed, status)
                 values ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,'parsed')
-                on conflict (sha256) do update set status = 'parsed', error = null
+                on conflict (sha256) do update set status = 'parsed', error = null, parsed = excluded.parsed, parser = excluded.parser, page_count = excluded.page_count
                 returning id
                 """,
                 system,
@@ -331,7 +347,7 @@ async def _set_parse_doc_type(pool: Any, parse_id: int, doc_type: str | None) ->
         )
 
 
-async def ingest_documents_events(items: list[tuple[str, str, bytes]]):
+async def ingest_documents_events(items: list[tuple[str, str, bytes]], *, extract_assets: bool = False):
     """Batch document ingest with chain-of-custody per doc, then ONE corpus
     re-resolution over everything (so a folder of PDFs resolves together).
 
@@ -343,31 +359,41 @@ async def ingest_documents_events(items: list[tuple[str, str, bytes]]):
     from app.db import get_pool
 
     pool = get_pool()
-    store = PgDocumentStore(pool)
+    store = PgDocumentStore(pool, extract_assets)
 
     yield {"step": "start", "message": f"Ingesting {len(items)} document(s)"}
     any_ok = False
+    failed = 0
 
     for system, filename, data in items:
         yield {
             "step": "parse",
-            "message": f"Parsing & extracting {filename} with Docling…",
+            "message": f"Reading {filename}: fast text, Docling layout/OCR for images and scans…",
             "filename": filename,
         }
         state: dict[str, Any] = {"records": 0, "doc_type": None}
 
         async def _post(_store, parse_id: int, parsed: ParsedDocument) -> None:
+            if parsed.raw.get("image_pages"):
+                enriched = await parse_pdf(data, filename)
+                await _store.save_parse(system, enriched, None)
+                parsed.__dict__.update(enriched.__dict__)
+            if not parsed.chunks:
+                raise ValueError("No readable text found; blank pages or unreadable scans need manual transcription")
+            if not extract_assets:
+                return
             records, doc_type = await _extract_and_cache(pool, parsed)
             stored = await _store_source_records(pool, system, records)
             await _set_parse_doc_type(pool, parse_id, doc_type)
             state["records"] = stored if stored else len(records)
             state["doc_type"] = doc_type
 
-        res = await ingest_document(store, system, filename, data, post_save=_post)
+        res = await ingest_document(store, system, filename, data, parser=parse_pdf_fast, post_save=_post)
 
         if res.status == "skipped":
             yield {"step": "skip", "message": f"{filename}: already ingested", "filename": filename}
         elif res.status == "error":
+            failed += 1
             where = (
                 "after durable save — parse retained + recoverable"
                 if res.parse_id
@@ -385,16 +411,16 @@ async def ingest_documents_events(items: list[tuple[str, str, bytes]]):
             yield {
                 "step": "extracted",
                 "message": (
-                    f"{filename}: {state['records']} mention record(s) from "
+                    f"{filename}: ready for document questions; {state['records']} asset mention(s) from "
                     f"{st.get('pages', 0)} page(s) / {st.get('chunks', 0)} passage(s); "
-                    f"type = {state['doc_type']}"
+                    f"{st.get('ocr_pages', 0)} OCR page(s); {st.get('unreadable_pages', 0)} unreadable page(s)"
                 ),
                 "filename": filename,
                 "records": state["records"],
                 "doc_type": state["doc_type"],
             }
 
-    if any_ok:
+    if any_ok and extract_assets:
         from app.services import pipeline
 
         yield {"step": "resolve", "message": "Resolving documents into the knowledge graph…"}
@@ -403,4 +429,4 @@ async def ingest_documents_events(items: list[tuple[str, str, bytes]]):
                 continue
             yield ev
 
-    yield {"step": "done", "message": "Document ingestion complete"}
+    yield {"step": "error" if failed else "done", "message": f"Document ingestion finished; {failed} file(s) failed"}

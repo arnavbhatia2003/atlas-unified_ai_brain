@@ -157,11 +157,11 @@ export interface IngestJobSummary {
 
 /** Upload PDFs (multipart) and START a background ingest job. Returns the job id
  *  immediately; the job keeps running server-side even if the page is left. */
-export async function startDocumentUpload(files: File[]): Promise<IngestJob> {
+export async function startDocumentUpload(files: File[], extractAssets = false): Promise<IngestJob> {
   const fd = new FormData()
   for (const f of files) fd.append('files', f)
   // Do NOT set Content-Type — the browser adds the multipart boundary.
-  const res = await fetch(`${API_URL}/api/documents/ingest`, {
+  const res = await fetch(`${API_URL}/api/documents/ingest?extract_assets=${extractAssets}`, {
     method: 'POST',
     headers: { Accept: 'application/json' },
     body: fd,

@@ -86,7 +86,7 @@ class JobRegistry:
             try:
                 async for ev in gen_factory():
                     job.add(ev)
-                job.finish("done")
+                job.finish("error" if any(e.get("step") in ("error", "doc_error") for e in job.events) else "done")
             except asyncio.CancelledError:
                 job.add({"step": "cancelled", "message": "Ingestion cancelled"})
                 job.finish("cancelled")

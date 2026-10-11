@@ -104,6 +104,7 @@ export interface ReviewItem {
 
 /** A durably-stored document parse (chain-of-custody record). */
 export interface DocumentParse {
+  unreadable_pages?: number[]
   id: number
   system: string
   filename: string

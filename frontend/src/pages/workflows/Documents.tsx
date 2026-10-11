@@ -41,6 +41,7 @@ function statusTone(status: string): 'verified' | 'review' | 'critical' | 'neutr
 }
 
 export function Documents() {
+  const [extractAssets, setExtractAssets] = useState(false)
   const [files, setFiles] = useState<File[]>([])
   const [folder, setFolder] = useState('')
   const [streaming, setStreaming] = useState(false)
@@ -122,7 +123,7 @@ export function Documents() {
   async function runUpload() {
     if (!files.length || streaming) return
     try {
-      const job = await startDocumentUpload(files)
+      const job = await startDocumentUpload(files, extractAssets)
       if (job.job_id) subscribe(job.job_id)
       else setError(job.error || 'Could not start ingestion')
     } catch (e) {
@@ -178,7 +179,7 @@ export function Documents() {
         <div className="px-5">
           <h2 className="text-base font-semibold">Upload PDFs</h2>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            Select one or more PDFs from your computer.
+            Upload PDFs with text or scans. Docling reads images and scanned pages; these take longer. Diagrams and handwriting may need manual review.
           </p>
         </div>
         <div className="flex flex-col gap-3 px-5 sm:flex-row sm:items-center">
@@ -211,6 +212,10 @@ export function Documents() {
         </div>
       </Card>
 
+      <label className="mb-6 flex items-center gap-2 text-sm">
+        <input type="checkbox" checked={extractAssets} disabled={streaming} onChange={(e) => setExtractAssets(e.target.checked)} />
+        Also extract assets and build the graph (slower). PDF questions work without this.
+      </label>
       {/* Folder path (local dev) */}
       <Card className="mb-6 gap-4 py-5">
         <div className="px-5">
@@ -328,8 +333,10 @@ export function Documents() {
                     {d.page_count} page{d.page_count === 1 ? '' : 's'}
                     {d.doc_type ? ` · ${d.doc_type.replace(/_/g, ' ')}` : ''}
                     {d.error ? ` · ${d.error.slice(0, 80)}` : ''}
+                    {d.unreadable_pages?.length ? ` · unreadable pages: ${d.unreadable_pages.join(', ')}` : ''}
                   </p>
                 </div>
+                <Button variant="outline" size="sm" asChild><Link to={`/ask?document=${d.id}`}>Ask this PDF</Link></Button>
                 <Badge variant={statusTone(d.status)}>{d.status}</Badge>
               </div>
             ))}

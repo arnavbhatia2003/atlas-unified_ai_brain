@@ -540,14 +540,15 @@ async def materialize_okf_bundles(conn: asyncpg.Connection) -> int:
         summary = doc["title"]
         h = hashlib.sha1(body.encode("utf-8")).hexdigest()
         prev = await conn.fetchrow(
-            "select body_hash from okf_documents where unified_id = $1", uid
+            "select body_hash, embedding is not null as has_embedding from okf_documents where unified_id = $1", uid
         )
         emb_literal = None
-        if (prev is None or prev["body_hash"] != h) and settings.embeddings_enabled and body.strip():
+        if (prev is None or prev["body_hash"] != h or not prev["has_embedding"]) and settings.embeddings_enabled and body.strip():
             try:
-                vec = await asyncio.to_thread(get_embedding_client().embed_query, body)
+                vectors = await asyncio.to_thread(get_embedding_client().embed, [body])
+                vec = vectors[0] if vectors else None
                 emb_literal = _vector_literal(vec)
-                embedded += 1
+                embedded += int(vec is not None)
             except Exception:
                 emb_literal = None
         await conn.execute(
@@ -559,7 +560,7 @@ async def materialize_okf_bundles(conn: asyncpg.Connection) -> int:
                 title = excluded.title, summary = excluded.summary,
                 body = excluded.body, markdown = excluded.markdown,
                 body_hash = excluded.body_hash,
-                embedding = coalesce(excluded.embedding, okf_documents.embedding),
+                embedding = case when excluded.body_hash = okf_documents.body_hash then coalesce(excluded.embedding, okf_documents.embedding) else excluded.embedding end,
                 tsv = excluded.tsv, updated_at = now()
             """,
             uid, doc["title"], summary, body, body, h, emb_literal,
@@ -694,6 +695,8 @@ async def hybrid_search(
                 )
                 for rid in pool
             ]
+            from app.services.rate_limit import get_rate_limiter
+            await asyncio.to_thread(get_rate_limiter().acquire, blocking=True)
             reranked = await asyncio.to_thread(
                 get_reranker(k).compress_documents, documents=docs, query=query
             )
@@ -734,3 +737,38 @@ async def most_referenced_asset(conn: asyncpg.Connection) -> str | None:
         "group by unified_id order by c desc, unified_id limit 1"
     )
     return row["unified_id"] if row else None
+
+
+async def document_search(conn: Any, query: str, document_id: int | None = None, k: int = 8) -> list[RetrievedRecord]:
+    """Page-level lexical retrieval, independent of asset extraction and NIM availability."""
+    # shortcut: JSON passage scan suits bounded classroom corpora; index a chunk table for larger corpora.
+    rows = await conn.fetch("""
+        select d.id, d.filename, d.system, c.chunk,
+               ts_rank_cd(to_tsvector('english', c.chunk->>'text'), websearch_to_tsquery('english', $1)) as rank
+        from document_parses d cross join lateral jsonb_array_elements(d.parsed->'chunks') c(chunk)
+        where ($2::bigint is null or d.id = $2)
+          and to_tsvector('english', c.chunk->>'text') @@ websearch_to_tsquery('english', $1)
+        order by rank desc, d.id, (c.chunk->>'index')::int limit $3
+    """, query, document_id, k)
+    # Natural-language questions often contain many unrelated stop words; OR is a recall fallback.
+    if not rows:
+        import re
+        terms = re.findall(r"[A-Za-z0-9][A-Za-z0-9_-]*", query)[:40]
+        if terms:
+            rows = await conn.fetch("""
+                select d.id, d.filename, d.system, c.chunk,
+                       ts_rank_cd(to_tsvector('english', c.chunk->>'text'), websearch_to_tsquery('english', $1)) as rank
+                from document_parses d cross join lateral jsonb_array_elements(d.parsed->'chunks') c(chunk)
+                where ($2::bigint is null or d.id = $2)
+                  and to_tsvector('english', c.chunk->>'text') @@ websearch_to_tsquery('english', $1)
+                order by rank desc, d.id, (c.chunk->>'index')::int limit $3
+            """, ' OR '.join(terms), document_id, k)
+    out = []
+    for row in rows:
+        chunk = _loads(row['chunk'])
+        out.append(RetrievedRecord(
+            citation=f"PDF:{row['id']}:p{chunk.get('page')}:c{chunk.get('index')}",
+            system=row['filename'], text=chunk.get('text', ''), similarity=float(row['rank']),
+            raw={'document_id': row['id'], 'page': chunk.get('page'), 'filename': row['filename']},
+        ))
+    return out

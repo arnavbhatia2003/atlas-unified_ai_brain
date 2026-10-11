@@ -136,7 +136,7 @@ def _pattern_analysis(
             break
         if best is None or ratio > best[1]:
             # remember best-effort even if below threshold
-            best = (pat.concept, ratio) if best is None else best
+            best = (pat.concept, ratio)
 
     if best is None:
         return CanonicalConcept.UNKNOWN, 0.0, 0.0
@@ -180,6 +180,8 @@ def _classify_field(
     rule2 = (
         semantic_score >= SEMANTIC_ANCHOR_THRESHOLD
         and pattern_ok
+        and cardinality_ok
+        and pattern_concept == semantic_concept
         and is_anchor_eligible(semantic_concept)
     )
     # Rule 3 (generalized from the doc): a plausible but weak/generic identifier

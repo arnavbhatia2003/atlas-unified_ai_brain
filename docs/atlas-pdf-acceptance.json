@@ -1,0 +1,125 @@
+{
+  "scope": "Synthetic 150-page digital PDF with repeated paragraphs and unique facts; single local user, not representative industrial corpus",
+  "upload_to_ready_seconds": 2.034,
+  "pdf_bytes": 514872,
+  "document_id": 19,
+  "cases": [
+    {
+      "question": "What is the inspection interval for ZEPHYR-003?",
+      "seconds": 1.823,
+      "retrieval_ok": true,
+      "answer_ok": true,
+      "answer": "3 days [PDF:19:p3:c6]",
+      "citations": [
+        {
+          "id": "PDF:19:p3:c6",
+          "unified_id": null,
+          "system": "classroom-acceptance-150-pages.pdf",
+          "similarity": 0.10000000149011612,
+          "document_id": 19,
+          "page": 3,
+          "filename": "classroom-acceptance-150-pages.pdf"
+        }
+      ]
+    },
+    {
+      "question": "What is the pressure limit of ZEPHYR-149?",
+      "seconds": 1.912,
+      "retrieval_ok": true,
+      "answer_ok": true,
+      "answer": "169 bar [PDF:19:p149:c440]",
+      "citations": [
+        {
+          "id": "PDF:19:p149:c440",
+          "unified_id": null,
+          "system": "classroom-acceptance-150-pages.pdf",
+          "similarity": 0.019999999552965164,
+          "document_id": 19,
+          "page": 149,
+          "filename": "classroom-acceptance-150-pages.pdf"
+        }
+      ]
+    },
+    {
+      "question": "What are the conflicting pressure limits for CONFLICT-900?",
+      "seconds": 3.032,
+      "retrieval_ok": true,
+      "answer_ok": true,
+      "answer": "80 bar and 95 bar [PDF:19:p12:c33] [PDF:19:p13:c34]",
+      "citations": [
+        {
+          "id": "PDF:19:p12:c33",
+          "unified_id": null,
+          "system": "classroom-acceptance-150-pages.pdf",
+          "similarity": 0.05000000074505806,
+          "document_id": 19,
+          "page": 12,
+          "filename": "classroom-acceptance-150-pages.pdf"
+        },
+        {
+          "id": "PDF:19:p13:c34",
+          "unified_id": null,
+          "system": "classroom-acceptance-150-pages.pdf",
+          "similarity": 0.05000000074505806,
+          "document_id": 19,
+          "page": 13,
+          "filename": "classroom-acceptance-150-pages.pdf"
+        }
+      ]
+    },
+    {
+      "question": "Who manufactured CONFLICT-900?",
+      "seconds": 2.009,
+      "retrieval_ok": true,
+      "answer_ok": true,
+      "answer": "Manufacturer is unknown. [PDF:19:p12:c33]",
+      "citations": [
+        {
+          "id": "PDF:19:p12:c33",
+          "unified_id": null,
+          "system": "classroom-acceptance-150-pages.pdf",
+          "similarity": 0.014285714365541935,
+          "document_id": 19,
+          "page": 12,
+          "filename": "classroom-acceptance-150-pages.pdf"
+        }
+      ]
+    },
+    {
+      "question": "What is the warranty expiry date of ZEPHYR-149?",
+      "seconds": 1.973,
+      "retrieval_ok": true,
+      "answer_ok": true,
+      "answer": "The retrieved PDF passages do not establish an answer to this question.",
+      "citations": [
+        {
+          "id": "PDF:19:p149:c440",
+          "unified_id": null,
+          "system": "classroom-acceptance-150-pages.pdf",
+          "similarity": 0.10000000149011612,
+          "document_id": 19,
+          "page": 149,
+          "filename": "classroom-acceptance-150-pages.pdf"
+        }
+      ]
+    }
+  ],
+  "passed": true,
+  "mixed_scan": {
+    "upload_to_ready_seconds": 17.287,
+    "parser": "pypdfium2+docling-ocr",
+    "answer": "17 days [PDF:20:p2:c1]",
+    "citations": [
+      {
+        "id": "PDF:20:p2:c1",
+        "unified_id": null,
+        "system": "classroom-mixed-scan.pdf",
+        "similarity": 0.10000000149011612,
+        "document_id": 20,
+        "page": 2,
+        "filename": "classroom-mixed-scan.pdf"
+      }
+    ],
+    "passed": true
+  }
+}

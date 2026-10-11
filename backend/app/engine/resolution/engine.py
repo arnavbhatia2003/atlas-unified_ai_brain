@@ -13,6 +13,9 @@ for human review instead of silently merging (the transitive-conflict guard).
 
 from __future__ import annotations
 
+import hashlib
+import json
+
 from app.knowledge.identity import CanonicalConcept, weight_of
 
 from .confidence import ConfidenceEngine, WeightedConfidenceEngine
@@ -120,6 +123,8 @@ def resolve(
 
     def _merge(root_a: str, root_b: str, conf: float, methods: set[str]) -> None:
         ca, cb = comp[root_a], comp[root_b]
+        if any(frozenset((a, b)) in forced_separate for a in ca.members for b in cb.members):
+            return
         ca.members |= cb.members
         for concept, vals in cb.values.items():
             ca.values.setdefault(concept, set()).update(vals)
@@ -191,7 +196,7 @@ def resolve(
         if len(members) == 1:
             decision, confidence = MergeDecision.SINGLETON, 0.0
         else:
-            max_conf = max(c.confs) if c.confs else 0.0
+            max_conf = min(c.confs) if c.confs else 0.0
             if max_conf >= AUTO_MERGE:
                 decision = MergeDecision.AUTO_MERGED
             elif max_conf >= SUGGEST:
@@ -200,7 +205,7 @@ def resolve(
                 decision = MergeDecision.REVIEW
             confidence = round(max_conf, 4)
         cluster = Cluster(
-            cluster_id=f"ua-{idx:04d}",
+            cluster_id="ua-" + hashlib.sha256(json.dumps(sorted(members)).encode()).hexdigest()[:16],
             members=sorted(members),
             identifiers=identifiers,
             decision=decision,

@@ -57,7 +57,7 @@ def _fixture_edges() -> list[Edge]:
         Edge(source_id=ASSET, relation_type=R.SUBJECT_TO,
              target_id=rule_node("RULE-LUBE-001"), layer=phys, metadata={}),
         Edge(source_id=ASSET, relation_type=R.HAS_WORK_ORDER,
-             target_id=work_order_node("WO-DONE"), layer=op, metadata={"status": "completed"}),
+             target_id=work_order_node("WO-DONE"), layer=op, metadata={"status": "completed", "rule_id": "RULE-LUBE-001"}),
         # asset ua-9999 subject to same rule, NO completed WO -> at risk
         Edge(source_id=OTHER, relation_type=R.SUBJECT_TO,
              target_id=rule_node("RULE-LUBE-001"), layer=phys, metadata={}),

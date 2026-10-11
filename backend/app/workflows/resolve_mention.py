@@ -55,7 +55,7 @@ async def _exact(conn: asyncpg.Connection, mention: str) -> list[AssetMatch]:
     ]
     name_rows = await conn.fetch(
         "select unified_id, asset_name, needs_review from unified_assets "
-        "where lower(asset_name) = lower($1)",
+        "where lower(asset_name) = lower($1) or unified_id = $1",
         mention,
     )
     matches.extend(
@@ -71,7 +71,7 @@ async def _exact(conn: asyncpg.Connection, mention: str) -> list[AssetMatch]:
 
 
 async def _partial(conn: asyncpg.Connection, mention: str, limit: int) -> list[AssetMatch]:
-    like = f"%{mention}%"
+    like = "%" + mention.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
     rows = await conn.fetch(
         """
         select distinct ua.unified_id, ua.asset_name, ua.needs_review,
@@ -80,6 +80,7 @@ async def _partial(conn: asyncpg.Connection, mention: str, limit: int) -> list[A
         left join asset_identifiers ai on ai.unified_id = ua.unified_id
         where ua.asset_name ilike $1 or ai.value ilike $1
         group by ua.unified_id, ua.asset_name, ua.needs_review
+        order by ua.unified_id
         limit $2
         """,
         like, limit,
@@ -115,9 +116,9 @@ async def resolve_mention(
         return MentionResolution(
             mention=mention,
             matches=exact,
-            resolved=len(exact) == 1,
+            resolved=len(exact) == 1 and not exact[0].needs_review,
             reason=(
-                "" if len(exact) == 1
+                "Asset identity needs review before using combined evidence." if len(exact) == 1 and exact[0].needs_review else "" if len(exact) == 1
                 else f"Ambiguous: {len(exact)} assets match '{mention}' exactly."
             ),
         )
@@ -131,7 +132,7 @@ async def resolve_mention(
     return MentionResolution(
         mention=mention,
         matches=partial,
-        resolved=len(partial) == 1,
+        resolved=False,
         reason=(
             "Matched by partial text; confirm this is the intended asset."
             if len(partial) == 1

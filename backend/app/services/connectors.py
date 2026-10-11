@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import urllib.request
 from collections.abc import AsyncIterator
 from typing import Any
 
@@ -26,11 +25,34 @@ from . import pipeline
 
 
 def _http_get_json(url: str) -> Any:
-    req = urllib.request.Request(
-        url, headers={"Accept": "application/json", "User-Agent": "UnifiedAssets/1.0"}
-    )
-    with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310 - user-provided URL
-        return json.loads(resp.read().decode())
+    import http.client
+    import ipaddress
+    import socket
+    from urllib.parse import urlsplit
+    parsed = urlsplit(url)
+    if parsed.scheme not in ("https", "http") or not parsed.hostname or parsed.username or parsed.password:
+        raise ValueError("Connector endpoint must be an HTTP(S) URL without credentials")
+    addresses = socket.getaddrinfo(parsed.hostname, parsed.port or (443 if parsed.scheme == "https" else 80))
+    if any(not ipaddress.ip_address(a[4][0]).is_global for a in addresses):
+        raise ValueError("Connector endpoints must use public IP addresses")
+    cls = http.client.HTTPSConnection if parsed.scheme == "https" else http.client.HTTPConnection
+    conn = cls(parsed.hostname, port=parsed.port, timeout=15)
+    try:
+        conn.connect()
+        # Check the connected peer too: DNS can change between validation and connection.
+        if not ipaddress.ip_address(conn.sock.getpeername()[0]).is_global:
+            raise ValueError("Connector connected to a private IP address")
+        target = (parsed.path or "/") + ("?" + parsed.query if parsed.query else "")
+        conn.request("GET", target, headers={"Accept":"application/json", "User-Agent":"UnifiedAssets/1.0"})
+        response = conn.getresponse()
+        if response.status != 200:
+            raise ValueError(f"Connector returned HTTP {response.status}; redirects are not supported")
+        data = response.read(5 * 1024 * 1024 + 1)
+        if len(data) > 5 * 1024 * 1024:
+            raise ValueError("Connector response exceeds 5 MB")
+        return json.loads(data.decode())
+    finally:
+        conn.close()
 
 
 def _coerce_records(data: Any) -> list[dict[str, Any]]:
@@ -156,14 +178,18 @@ async def sync_connector(
     yield {"step": "fetch", "message": f"Fetched {len(records)} record(s) from {name}"}
 
     summary: dict[str, Any] | None = None
-    async for ev in pipeline.ingest_records({name: records}):
-        if ev.get("step") == "start":
-            continue
-        if ev.get("step") == "complete":
-            summary = ev.get("summary")
-        yield ev
+    try:
+        async for ev in pipeline.ingest_records({name: records}):
+            if ev.get("step") == "start":
+                continue
+            if ev.get("step") == "complete":
+                summary = ev.get("summary")
+            yield ev
+        await _finish(connector_id, summary)
+    except BaseException:
+        await _set_status(connector_id, "error")
+        raise
 
-    await _finish(connector_id, summary)
 
 
 async def _set_status(connector_id: int, status: str) -> None:

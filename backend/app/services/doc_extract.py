@@ -85,7 +85,7 @@ def _records_from_tables(parsed: ParsedDocument) -> list[dict[str, Any]]:
                     continue
                 rec[str(k)] = str(val)
                 concept = _ident_concept(str(val))
-                if concept and concept not in rec:
+                if concept and concept not in rec and raw_id.strip().casefold() in chunk.text.casefold():
                     rec[concept] = str(val).strip()
             rec["_citation"] = rid
             rec["_page"] = tbl.page
@@ -194,7 +194,7 @@ def _mention_to_record(
     # validated identifiers -> concept-named fields (discovery will anchor them)
     for raw_id in _as_list(m.get("identifiers")):
         concept = _ident_concept(raw_id)
-        if concept and concept not in rec:
+        if concept and concept not in rec and raw_id.strip().casefold() in chunk.text.casefold():
             rec[concept] = raw_id.strip()
 
     kind = str(m.get("kind") or "none").strip().lower()
@@ -202,7 +202,7 @@ def _mention_to_record(
         rec["_event_kind"] = kind
         # Pre-computed operational extraction so extract_ops needs no 2nd LLM call.
         rec["_ext"] = {
-            "is_anomaly": bool(m.get("is_anomaly", kind in ("failure",))),
+            "is_anomaly": m.get("is_anomaly", kind == "failure") is True,
             "component": str(m.get("component") or "").strip(),
             "observation": (detail[:60] or asset),
             "symptoms": _as_list(m.get("symptoms")),
@@ -215,12 +215,11 @@ def _mention_to_record(
 
 
 def _prioritize(chunks: list, limit: int) -> list:
-    """When a document has more chunks than the budget allows, keep the most
-    informative ones (longer passages first) — deterministic, content-agnostic."""
+    """Sample evenly across the document when narrative exceeds the request budget."""
     usable = [c for c in chunks if len(c.text) >= _MIN_CHUNK_CHARS]
     if len(usable) <= limit:
         return usable
-    return sorted(usable, key=lambda c: len(c.text), reverse=True)[:limit]
+    return [usable[round(i * (len(usable) - 1) / (limit - 1))] for i in range(limit)] if limit > 1 else usable[:1]
 
 
 async def extract_document_records(

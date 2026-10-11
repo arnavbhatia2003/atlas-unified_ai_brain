@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Atlas: implemented paths",
+    "subtitle": "Audited at 5491b78 · proposed industrial controls are documented separately",
+    "output": "atlas-architecture.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/arnavbhatia2003/atlas-unified_ai_brain",
+      "revision": "5491b78e480a8dd4adbdf34c3c7af6cc4361e9bf",
+      "provider": "github",
+      "link_mode": "web"
+    }
+  },
+  "components": [
+    {"id":"ui","type":"frontend","label":"React UI","sublabel":"Assets, review, workflows","pos":[40,80],"size":[210,76],"sources":[{"path":"frontend/src/lib/api.ts","line":1,"label":"API and SSE client"}]},
+    {"id":"api","type":"backend","label":"FastAPI workflows","sublabel":"Ask, RCA, compliance","pos":[390,80],"size":[220,76],"sources":[{"path":"backend/app/api/routes.py","line":41,"label":"HTTP entry points"},{"path":"backend/app/workflows/chat.py","line":368,"label":"Workflow routing"}]},
+    {"id":"db","type":"database","label":"Postgres + pgvector","sublabel":"Raw data and derived views","pos":[760,80],"size":[230,76],"sources":[{"path":"backend/app/db/schema.sql","line":1,"label":"Persistence schema"}]},
+    {"id":"documents","type":"backend","label":"PDF ingest","sublabel":"Docling or text fallback","pos":[40,340],"size":[210,76],"sources":[{"path":"backend/app/services/documents.py","line":335,"label":"Parser selection"},{"path":"backend/app/services/document_ingest.py","line":316,"label":"Batch orchestration"}]},
+    {"id":"pipeline","type":"backend","label":"Resolution pipeline","sublabel":"Discover, cluster, project","pos":[390,340],"size":[220,76],"sources":[{"path":"backend/app/services/pipeline.py","line":146,"label":"Ingest and rebuild"},{"path":"backend/app/engine/resolution/engine.py","line":85,"label":"Conflict-aware clustering"}]},
+    {"id":"nim","type":"external","label":"NVIDIA NIM","sublabel":"Hosted model calls","pos":[760,340],"size":[230,76],"sources":[{"path":"backend/app/services/llm.py","line":1,"label":"Chat and reranking"},{"path":"backend/app/services/embeddings.py","line":39,"label":"Embedding client"}]}
+  ],
+  "connections": [
+    {"id":"browser-api","from":"ui","to":"api","label":"HTTP / SSE","variant":"emphasis"},
+    {"id":"workflow-db","from":"api","to":"db","label":"facts / retrieval"},
+    {"id":"pdf-upload","from":"api","to":"documents","label":"PDF upload"},
+    {"id":"document-records","from":"documents","to":"pipeline","label":"extracted records"},
+    {"id":"json-ingest","from":"api","to":"pipeline","label":"JSON sync"},
+    {"id":"projection","from":"pipeline","to":"db","label":"rebuild views"},
+    {"id":"pipeline-models","from":"pipeline","to":"nim","label":"embed / extract"},
+    {"id":"workflow-models","from":"api","to":"nim","label":"reason / rerank","variant":"dashed"}
+  ],
+  "cards": [
+    {"dot":"cyan","title":"What exists","items":["Raw records, parsed PDFs and source-linked edges","Conflict checks, review UI and SSE workflows"]},
+    {"dot":"amber","title":"Publication gap","items":["Review-band clusters already enter derived views","Rebuild phases are not one atomic publication"]},
+    {"dot":"rose","title":"Deployment gaps","items":["No API authentication or tenant boundary in code","No measured industrial accuracy or capacity"]}
+  ]
+}

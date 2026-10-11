@@ -36,7 +36,7 @@ from app.knowledge.identity import weight_of
 from .embeddings import build_similarity, get_embedding_client
 from .persistence import _vector_literal, rebuild_projection
 
-_IDENTIFIER_ROLES = {FieldRole.ANCHOR, FieldRole.PROBABLE_ANCHOR}
+_IDENTIFIER_ROLES = {FieldRole.ANCHOR}
 _DESCRIPTIVE_ROLES = {FieldRole.DESCRIPTIVE}
 _UNTRUSTED_CONCEPTS = {"alphanumeric_id", "numeric_id", "system_internal_id", "unknown"}
 
@@ -143,7 +143,16 @@ def sse(event: dict[str, Any]) -> str:
     return f"data: {json.dumps(event)}\n\n"
 
 
-async def ingest_records(
+_pipeline_lock = asyncio.Lock()
+
+
+async def ingest_records(systems: dict[str, list[dict[str, Any]]]) -> AsyncIterator[dict[str, Any]]:
+    async with _pipeline_lock:
+        async for event in _ingest_records(systems):
+            yield event
+
+
+async def _ingest_records(
     systems: dict[str, list[dict[str, Any]]],
 ) -> AsyncIterator[dict[str, Any]]:
     """Store the new delta, re-resolve the full corpus, rebuild the projection."""
@@ -195,8 +204,6 @@ async def ingest_records(
                 await conn.execute("delete from operational_extractions")
                 await conn.execute("delete from source_systems")
                 await conn.execute("delete from discovered_fields")
-                await conn.execute("delete from document_parses")
-                await conn.execute("delete from doc_extractions")
                 await conn.execute("delete from review_queue where kind <> 'manual'")
             yield {"step": "complete", "message": "Nothing to resolve", "summary": _empty_summary()}
             return
@@ -272,7 +279,7 @@ async def ingest_records(
                 "message": f"Reused {len(emb_by_id)} stored embedding(s)",
             }
 
-        if emb_by_id:
+        if settings.embeddings_enabled and emb_by_id:
             similarity = build_similarity(emb_by_id)
 
         # 5. Resolve the full corpus, honoring any human review decisions.
@@ -342,6 +349,7 @@ async def ingest_records(
         await rebuild_projection(conn, result, edges, discoveries, db_id, names)
         yield {"step": "persist", "message": "Rebuilt unified assets, identifiers and graph"}
 
+        warnings: list[str] = []
         # 7. Operational-graph extraction — pull failures / work orders / rules
         #    out of operational-source records (grounded; one cached LLM call per
         #    record, never told the root cause) and link them to their resolved
@@ -364,7 +372,8 @@ async def ingest_records(
                 **op,
             }
         except Exception as exc:  # noqa: BLE001 - enrichment must not break ingest
-            yield {"step": "operational", "message": f"Operational extraction skipped: {exc}"}
+            warnings.append("Operational extraction incomplete")
+            yield {"step": "operational", "message": f"Operational extraction skipped ({type(exc).__name__})"}
 
         # 8. Materialize the OKF bundles (the queryable "second brain"): one
         #    human-readable + agent-searchable knowledge doc per canonical asset.
@@ -377,11 +386,13 @@ async def ingest_records(
                 "message": f"Materialized OKF knowledge bundles ({n_emb} (re)embedded)",
             }
         except Exception as exc:  # noqa: BLE001 - enrichment must not break ingest
-            yield {"step": "bundle", "message": f"Bundle materialization skipped: {exc}"}
+            warnings.append("Knowledge bundles incomplete")
+            yield {"step": "bundle", "message": f"Bundle materialization skipped ({type(exc).__name__})"}
 
         yield {
             "step": "complete",
-            "message": "Ingestion complete",
+            "message": "Ingestion complete" if not warnings else "Ingestion completed with incomplete enrichment",
+            "warnings": warnings,
             "summary": {
                 "new": new_count,
                 "skipped": skip_count,

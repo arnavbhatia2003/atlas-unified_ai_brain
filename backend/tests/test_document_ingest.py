@@ -159,3 +159,16 @@ def test_duplicate_content_is_skipped():
     assert first.status == "processed"
     assert second.status == "skipped"
     assert store.save_calls == 1  # the identical file was not re-saved
+
+
+def test_storage_failure_is_reported_without_claiming_success():
+    class UnavailableStore(FakeStore):
+        async def save_parse(self, *args):
+            raise RuntimeError("database unavailable")
+    async def parser(data, filename):
+        return _mk_parsed(sha256_of(data))
+    store=UnavailableStore()
+    result=asyncio.run(ingest_document(store,"test","test.pdf",b"data",parser=parser))
+    assert result.status=="error"
+    assert result.parse_id is None
+    assert "Durable save failed" in result.error

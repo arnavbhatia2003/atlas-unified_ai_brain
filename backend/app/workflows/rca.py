@@ -253,17 +253,17 @@ def _calibrate_confidence(
 
     def _matches(ev_id: str, pool: set[str]) -> bool:
         e = ev_id.strip().lower()
-        return bool(e) and any(e == k or e in k or k in e for k in pool)
+        return bool(e) and e in pool
 
     for h in report.get("hypotheses") or []:
         ev_ids = [str(e) for e in (h.get("evidence") or [])]
-        grounded = any(_matches(e, known) for e in ev_ids)
+        grounded = bool(ev_ids) and all(_matches(e, known) for e in ev_ids)
         for e in ev_ids:
             if _matches(e, known):
                 all_cited.add(e.strip().lower())
         text = f"{h.get('cause','')} {h.get('explanation','')}".lower()
         uses_upstream = has_upstream and (
-            any(_matches(e, upstream_ids) for e in ev_ids) or "upstream" in text
+            any(_matches(e, upstream_ids) for e in ev_ids)
         )
 
         cap = 0.45

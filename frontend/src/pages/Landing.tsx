@@ -355,7 +355,7 @@ function Hero() {
 }
 
 const MQ_ITEMS = [
-  'RESOLUTION F1: 1.00',
+  'RESOLUTION: REVIEWABLE MATCHES',
   '100% CITATION GROUNDING',
   'SINGLE POSTGRESQL ENGINE',
   'ANSI SQL:1999 RECURSIVE CTES',
@@ -402,7 +402,7 @@ function Stat({ label, target, decimals, foot, d }: { label: string; target: num
 const CAPS = [
   { idx: '01', h: '[ INGESTION ]', p: 'Docling visual layout analysis + TableFormer PDF parsing. Two-Phase Chain-of-Custody with SHA-256 boundary persistence.', stat: 'DURABLE CUSTODY HASH' },
   { idx: '02', h: '[ DISCOVERY ]', p: 'Autonomous Tri-Signal Voting (Pattern ≥0.80, Cardinality ≥0.80, Semantics ≥0.80) with sequential ID arithmetic guards.', stat: 'ZERO MANUAL MAPPING' },
-  { idx: '03', h: '[ RESOLUTION ]', p: 'Physics-weighted Union-Find clustering (Serial w=0.95, MAC w=0.90) with Transitive Bridge-Conflict Guard (×0.40 penalty).', stat: 'F1 SCORE = 1.00' },
+  { idx: '03', h: '[ RESOLUTION ]', p: 'Physics-weighted Union-Find clustering (Serial w=0.95, MAC w=0.90) with Transitive Bridge-Conflict Guard (×0.40 penalty).', stat: 'MATCH QUALITY REQUIRES EVALUATION' },
   { idx: '04', h: '[ GRAPH CTE ]', p: 'Dual-Layer Knowledge Graph projected into PostgreSQL. Multi-hop traversal via ANSI SQL:1999 Recursive CTEs.', stat: 'SUB-10MS TRAVERSAL' },
   { idx: '05', h: '[ HYBRID RRF ]', p: 'Tri-modal search combining pgvector (2048-dim), BM25 tsvector GIN, and OKF dossiers with Nemotron Cross-Encoder reranking.', stat: 'RRF FUSION (K=60)' },
   { idx: '06', h: '[ COMPLIANCE ]', p: 'Deterministic SQL anti-join (NOT EXISTS) regulatory safety audits. The LLM only authors prose; SQL decides compliance.', stat: '100% REPEATABILITY' },
@@ -764,11 +764,11 @@ function Topology() {
 }
 
 const BENCH = [
-  ['TEST-01', '2026-08-30', 'RESOLUTION CLUSTERING F1 SCORE: 1.00 — ZERO CORRUPTED MERGES'],
-  ['TEST-02', '2026-08-30', 'ANOMALY NOISE GATING: 1.00 PASS — BENIGN LOGS EXCLUDED FROM FAILURE GRAPH'],
-  ['TEST-03', '2026-08-30', 'CITATION GROUNDING RATE: 100% — ZERO FABRICATED EVIDENCE IDS'],
-  ['TEST-04', '2026-08-30', 'CROSS-ASSET LEAKAGE: 0.00% — RCA ON ASSET A NEVER CITES ASSET B'],
-  ['TEST-05', '2026-08-30', 'COMPLIANCE DETERMINISM: 100% REPEATABILITY ON SQL ANTI-JOINS'],
+  ['TEST-01', 'REGRESSION', 'CONFLICT AND HUMAN SEPARATION CHECKS — SYNTHETIC FIXTURES'],
+  ['TEST-02', 'REGRESSION', 'NEGATED FAULTS AND HEALTHY LOGS — DETERMINISTIC CHECKS'],
+  ['TEST-03', 'DOCUMENT QA', 'PAGE CITATIONS AND MISSING-EVIDENCE FALLBACK — BOUNDED PDF RETRIEVAL'],
+  ['TEST-04', 'LIMITATION', 'INDUSTRIAL ACCURACY AND CROSS-SECTOR GENERALIZATION ARE NOT ESTABLISHED'],
+  ['TEST-05', 'COMPLIANCE', 'RULE AND PERIOD MATCHING — DECISION SUPPORT REQUIRES HUMAN REVIEW'],
 ]
 
 function Dispatches() {

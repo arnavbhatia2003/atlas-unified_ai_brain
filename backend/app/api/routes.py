@@ -9,8 +9,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from fastapi import APIRouter, File, Query, UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, File, Query, UploadFile, HTTPException
+from fastapi.responses import StreamingResponse, Response
 from pydantic import BaseModel, Field
 
 from app.db import get_pool
@@ -57,7 +57,8 @@ class IngestRequest(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    message: str
+    message: str = Field(min_length=1, max_length=8000)
+    document_id: int | None = Field(default=None, gt=0)
     intent: str | None = None  # optional override (ask|rca|compliance|asset_lookup)
 
 
@@ -115,21 +116,31 @@ class IngestPathRequest(BaseModel):
 
 
 @router.post("/documents/ingest")
-async def documents_ingest(files: list[UploadFile] = File(...)) -> dict[str, Any]:
+async def documents_ingest(files: list[UploadFile] = File(...), extract_assets: bool = Query(False)) -> dict[str, Any]:
     """Upload one or more PDFs. Reads the files within the request, then starts a
     BACKGROUND job (parse -> durable save -> extract -> resolve). Returns a job id
     immediately; the job keeps running even if the browser navigates away. Tail
     status via GET /documents/jobs/{id}/stream."""
     items: list[tuple[str, str, bytes]] = []
+    if not 1 <= len(files) <= 5:
+        raise HTTPException(400, "Upload between one and five PDFs")
+    if job_registry.running() is not None:
+        raise HTTPException(409, "An ingestion job is already running")
+    total = 0
     for f in files:
-        data = await f.read()  # must read while the request is open
-        name = f.filename or "document.pdf"
+        data = await f.read(25 * 1024 * 1024 + 1)  # must read while the request is open
+        name = (f.filename or "document.pdf").replace("\\", "/").split("/")[-1]
+        total += len(data)
+        if len(data) > 25 * 1024 * 1024 or total > 50 * 1024 * 1024:
+            raise HTTPException(413, "Limit: 25 MB per PDF, 50 MB per upload")
+        if not name.lower().endswith(".pdf") or b"%PDF-" not in data[:1024]:
+            raise HTTPException(415, "Only PDF files are accepted")
         items.append((_clean_system_name(name), name, data))
     label = (
         items[0][1] if len(items) == 1 else f"{len(items)} documents"
     ) if items else "documents"
     job = job_registry.start(
-        "upload", label, lambda: ingest_documents_events(items)
+        "upload", label, lambda: ingest_documents_events(items, extract_assets=extract_assets)
     )
     return {"job_id": job.id, "status": job.status, "label": job.label}
 
@@ -138,6 +149,7 @@ def _read_path_items(path: str) -> tuple[list[tuple[str, str, bytes]], str | Non
     """Read PDFs from a server-side file/folder into (system, name, bytes) items.
     Returns (items, error). Local-dev convenience (reads the server filesystem)."""
     import os
+    from pathlib import Path
 
     if not os.path.exists(path):
         return [], f"Path not found: {path}"
@@ -150,11 +162,22 @@ def _read_path_items(path: str) -> tuple[list[tuple[str, str, bytes]], str | Non
     if not pdfs:
         return [], "No PDF files found"
     items: list[tuple[str, str, bytes]] = []
+    if len(pdfs) > 5:
+        return [], "Ingest at most five PDFs at a time"
+    total = 0
     for fp in pdfs:
+        if not Path(fp).resolve().is_relative_to(Path(__file__).resolve().parents[3]):
+            return [], "PDF paths must stay inside the project folder"
+        if not fp.lower().endswith(".pdf") or os.path.getsize(fp) > 25 * 1024 * 1024:
+            return [], "Only PDFs up to 25 MB are accepted"
         name = os.path.basename(fp)
         try:
             with open(fp, "rb") as fh:
-                items.append((_clean_system_name(name), name, fh.read()))
+                data = fh.read(25 * 1024 * 1024 + 1)
+                total += len(data)
+                if len(data) > 25 * 1024 * 1024 or total > 50 * 1024 * 1024 or b"%PDF-" not in data[:1024]:
+                    return [], "Invalid PDF or upload size limit exceeded"
+                items.append((_clean_system_name(name), name, data))
         except Exception:  # noqa: BLE001 - skip unreadable files
             continue
     return items, None
@@ -164,7 +187,14 @@ def _read_path_items(path: str) -> tuple[list[tuple[str, str, bytes]], str | Non
 async def documents_ingest_path(req: IngestPathRequest) -> dict[str, Any]:
     """Ingest PDFs from a server-side path (file or folder) as a BACKGROUND job.
     Returns a job id; tail via GET /documents/jobs/{id}/stream. Local-dev only."""
-    items, err = _read_path_items(req.path)
+    from pathlib import Path
+    candidate = Path(req.path).resolve()
+    root = Path(__file__).resolve().parents[3]
+    if not candidate.is_relative_to(root):
+        raise HTTPException(403, "Server paths must stay inside the project folder; use PDF upload for other files")
+    if job_registry.running() is not None:
+        raise HTTPException(409, "An ingestion job is already running")
+    items, err = _read_path_items(str(candidate))
     if err:
         return {"error": err}
     import os
@@ -214,7 +244,7 @@ async def list_documents() -> list[dict[str, Any]]:
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             "select id, system, filename, doc_type, parser, page_count, title, "
-            "status, error, parsed_at, processed_at from document_parses "
+            "status, error, parsed_at, processed_at, parsed->'raw'->'unreadable_pages' as unreadable_pages from document_parses "
             "order by parsed_at desc, id desc"
         )
     out: list[dict[str, Any]] = []
@@ -229,12 +259,24 @@ async def list_documents() -> list[dict[str, Any]]:
                 "page_count": r["page_count"],
                 "title": r["title"],
                 "status": r["status"],
+                "unreadable_pages": json.loads(r["unreadable_pages"]) if isinstance(r["unreadable_pages"], str) else r["unreadable_pages"] or [],
                 "error": r["error"],
                 "parsed_at": r["parsed_at"].isoformat() if r["parsed_at"] else None,
                 "processed_at": r["processed_at"].isoformat() if r["processed_at"] else None,
             }
         )
     return out
+
+
+@router.get("/documents/{document_id}/file")
+async def document_file(document_id: int) -> Response:
+    import base64
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        raw = await conn.fetchval("select parsed->'raw'->>'original_pdf_b64' from document_parses where id=$1", document_id)
+    if not raw:
+        raise HTTPException(404, "Original PDF unavailable; re-upload the document")
+    return Response(base64.b64decode(raw, validate=True), media_type="application/pdf", headers={"Content-Disposition": "inline"})
 
 
 @router.get("/assets")
@@ -369,6 +411,7 @@ async def resolve_review(item_id: int, req: ReviewAction) -> dict[str, Any]:
         for i in range(len(records)):
             for j in range(i + 1, len(records)):
                 a, b = sorted((records[i], records[j]))
+                await conn.execute("delete from manual_decisions where record_a=$1 and record_b=$2 and kind<>$3", a, b, req.action)
                 await conn.execute(
                     "insert into manual_decisions (kind, record_a, record_b) "
                     "values ($1,$2,$3) on conflict do nothing",
@@ -623,7 +666,7 @@ async def history_run(run_id: int) -> dict[str, Any]:
 async def chat(req: ChatRequest) -> StreamingResponse:
     """Chatbot: routes to ask/rca/compliance/lookup, streaming status + tokens."""
     return StreamingResponse(
-        run_chat_events(req.message, req.intent),
+        run_chat_events(req.message, req.intent, req.document_id),
         media_type="text/event-stream",
         headers=_SSE_HEADERS,
     )

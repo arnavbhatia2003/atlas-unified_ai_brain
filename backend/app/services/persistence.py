@@ -45,7 +45,7 @@ async def rebuild_projection(
         # Derived projection only — source_records are preserved.
         await conn.execute("delete from unified_assets")  # cascades identifiers + links
         await conn.execute("delete from edges where layer = 'physical'")
-        await conn.execute("delete from review_queue where kind <> 'manual'")
+        await conn.execute("delete from review_queue where kind <> 'manual' and status = 'open'")
 
         # discovered fields (per system)
         for system, disc in discoveries.items():

@@ -145,6 +145,8 @@ _BENIGN_RE = re.compile(
 
 def _anomaly_signal(text: str) -> bool | None:
     t = text or ""
+    t = re.sub(r"\bno\s+(failure|fault|error|alarm|leak|anomaly)\w*\b", "healthy", t, flags=re.I)
+    t = re.sub(r"\b(failure|fault|error|alarm|leak|anomaly)\w*\s+(?:is\s+|was\s+)?resolved\b", "healthy", t, flags=re.I)
     if _ANOMALY_RE.search(t):
         return True
     if _BENIGN_RE.search(t):
@@ -246,7 +248,7 @@ async def _load_or_extract(
         data = {}
     sig = _anomaly_signal(f"{data.get('observation', '')} {text}")
     payload = {
-        "is_anomaly": sig if sig is not None else bool(data.get("is_anomaly", True)),
+        "is_anomaly": sig if sig is not None else data.get("is_anomaly") is True,
         "component": str(data.get("component") or raw.get("component") or "").strip(),
         "observation": str(data.get("observation") or text[:60]).strip(),
         "symptoms": data.get("symptoms") if isinstance(data.get("symptoms"), list) else [],
@@ -284,9 +286,6 @@ async def rebuild_operational_edges(
     # Rebuild is authoritative for the operational layer.
     await conn.execute("delete from edges where layer = 'operational'")
 
-    if not settings.embeddings_enabled:
-        # No NVIDIA access (offline/test) — nothing to extract.
-        return counts
 
     seen: set[tuple[str, str, str]] = set()
 
@@ -346,7 +345,7 @@ async def rebuild_operational_edges(
                 counts["failures"] += 1
         elif kind in ("work_order", "inspection"):
             status = (ext.get("status") or raw.get("status") or "").strip().lower()
-            wo_meta = {**base_meta, "status": status}
+            wo_meta = {**base_meta, "status": status, "rule_id": ext.get("rule_id") or raw.get("rule_id"), "period": raw.get("period")}
             await add_edge(asset, RelationType.HAS_WORK_ORDER, work_order_node(_slug(rid)), wo_meta)
             counts["work_orders"] += 1
         elif kind == "rule":
@@ -369,7 +368,7 @@ async def rebuild_operational_edges(
     # asset can be traced to a failure on the upstream asset it relies on.
     for rec in records:
         raw = raw_by_record.get(rec.record_id, {})
-        dep = raw.get("depends_on") or raw.get("upstream") or raw.get("connected_to")
+        dep = raw.get("depends_on") or raw.get("upstream")
         if not dep:
             continue
         src_uid = member_to_cluster.get(rec.record_id)

@@ -1,0 +1,101 @@
+{
+  "kind": "offline implementation counterexamples",
+  "external_calls": 0,
+  "database_writes": 0,
+  "reproduced": 9,
+  "results": [
+    {
+      "id": "G02",
+      "status": "reproduced",
+      "observed": {
+        "members": [
+          "a",
+          "b"
+        ],
+        "decision": "review"
+      },
+      "required_behavior": "Keep proposed membership outside the published identity graph until approved."
+    },
+    {
+      "id": "G03",
+      "status": "reproduced",
+      "observed": {
+        "members": [
+          "a",
+          "b",
+          "c"
+        ],
+        "decision": "auto_merged",
+        "confidence": 0.95,
+        "review_items": 0
+      },
+      "required_behavior": "A strong existing pair must not promote a weak new member to automatic acceptance."
+    },
+    {
+      "id": "G04",
+      "status": "reproduced",
+      "observed": {
+        "a_and_b_same_cluster": true
+      },
+      "required_behavior": "Cannot-link must apply to every member across proposed clusters."
+    },
+    {
+      "id": "G05",
+      "status": "reproduced",
+      "observed": {
+        "before": "ua-0001",
+        "after_unrelated_insert": "ua-0002"
+      },
+      "required_behavior": "Unrelated inserts must not renumber existing entity identities."
+    },
+    {
+      "id": "G08",
+      "status": "reproduced",
+      "observed": {
+        "role": "anchor",
+        "concept": "serial_number",
+        "pattern_concept": "system_internal_id"
+      },
+      "required_behavior": "Reject conflicting pattern/name semantics or require approved source mapping."
+    },
+    {
+      "id": "G09",
+      "status": "reproduced",
+      "observed": {
+        "returned_ratio": 0.1,
+        "available_better_ratio": 0.7,
+        "fixture": "controlled pattern predicates"
+      },
+      "required_behavior": "Below threshold, retain the actual best-effort pattern."
+    },
+    {
+      "id": "G16",
+      "status": "reproduced",
+      "observed": {
+        "no failure": true,
+        "fault resolved": true
+      },
+      "required_behavior": "Negation and resolved status must not generate active failures."
+    },
+    {
+      "id": "G20",
+      "status": "reproduced",
+      "observed": {
+        "invented_citation": "INC-1",
+        "known_citation": "INC-10",
+        "confidence_cap": 0.7
+      },
+      "required_behavior": "Require exact, source-qualified citation identity; reject every unsupported citation."
+    },
+    {
+      "id": "G13",
+      "status": "reproduced",
+      "observed": {
+        "second_attempt": null,
+        "provider_calls": 1,
+        "available": false
+      },
+      "required_behavior": "Recover after bounded backoff; a transient exception must not disable the process forever."
+    }
+  ]
+}

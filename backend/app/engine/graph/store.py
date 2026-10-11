@@ -55,6 +55,8 @@ WHERE s.relation_type = 'SUBJECT_TO' AND s.target_id = $1
       WHERE w.source_id = s.source_id
         AND w.relation_type = 'HAS_WORK_ORDER'
         AND (w.metadata ->> 'status') = 'completed'
+        and (w.metadata->>'rule_id') in ($1, substring($1 from 6))
+        and (s.metadata->>'period' is null or w.metadata->>'period' = s.metadata->>'period')
   )
 ORDER BY asset;
 """
