@@ -69,8 +69,10 @@ export const api = {
     getJSON<AssetDoc>(`/api/asset/${encodeURIComponent(id)}`, signal),
   documents: (signal?: AbortSignal) =>
     getJSON<DocumentParse[]>('/api/documents', signal),
-  startIngestPath: (path: string) =>
-    sendJSON<IngestJob>('POST', '/api/documents/ingest-path', { path }),
+  startIngestPath: (path: string, extract_assets = false) =>
+    sendJSON<IngestJob>('POST', '/api/documents/ingest-path', { path, extract_assets }),
+  reprocessDocument: (id: number, extract_assets = false) =>
+    sendJSON<IngestJob>('POST', `/api/documents/${id}/reprocess`, { extract_assets }),
   documentJobs: (signal?: AbortSignal) =>
     getJSON<{ jobs: IngestJobSummary[]; running: boolean }>(
       '/api/documents/jobs',

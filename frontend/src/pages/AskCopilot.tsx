@@ -42,6 +42,10 @@ const uid = () => Math.random().toString(36).slice(2)
 export function AskCopilot() {
   const [params] = useSearchParams()
   const documentId = Number(params.get("document")) || undefined
+  return <DocumentChat key={documentId ?? 'all'} documentId={documentId} />
+}
+
+function DocumentChat({ documentId }: { documentId?: number }) {
   const [input, setInput] = useState('')
   const [turns, setTurns] = useState<Turn[]>([])
   // A routed RCA/Compliance result opens as a workflow window over the chat.
@@ -101,7 +105,8 @@ export function AskCopilot() {
     thinkStartRef.current = null
     let completed = false
     try {
-      for await (const ev of streamWorkflow('/api/chat', { message, document_id: documentId }, controller.signal)) {
+      const history = turns.slice(-6).map(t => ({ role: t.role, content: (t.role === 'user' ? t.text : t.answer).slice(0, 2000) }))
+      for await (const ev of streamWorkflow('/api/chat', { message, document_id: documentId, history }, controller.signal)) {
         if (ev.step === 'thinking') {
           if (thinkStartRef.current == null) thinkStartRef.current = Date.now()
           patchAssistant(aId, (t) => ({ ...t, thinking: t.thinking + (ev.text ?? '') }))
@@ -118,7 +123,7 @@ export function AskCopilot() {
         } else if (ev.step === 'complete') {
           completed = true
           const r = (ev.result as ChatResult) ?? null
-          patchAssistant(aId, (t) => ({ ...t, result: r, answer: t.answer || r?.answer || '' }))
+          patchAssistant(aId, (t) => ({ ...t, result: r, answer: r?.answer || t.answer }))
           if (r && (r.intent === 'rca' || r.intent === 'compliance')) setWorkflow(r)
         } else if (ev.message) {
           patchAssistant(aId, (t) => ({ ...t, status: ev.message as string }))
@@ -159,7 +164,7 @@ export function AskCopilot() {
           <div className="w-full max-w-2xl">
             {composer}
             <div className="mt-3 flex flex-wrap justify-center gap-2">
-              {(documentId ? ['What inspection intervals are specified in this PDF?', 'Does this PDF contain conflicting pressure specifications? Cite the pages.'] : EXAMPLES).map((ex) => (
+              {(documentId ? ['Summarize this PDF and cite the relevant pages.', 'Are any specifications missing or contradictory? Cite the pages.'] : EXAMPLES).map((ex) => (
                 <button
                   key={ex}
                   onClick={() => setInput(ex)}

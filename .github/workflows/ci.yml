@@ -1,6 +1,5 @@
 # Sprint 1 CI — automated build + backend tests + linting on every push.
-# DB-integration tests skip automatically when Postgres is unreachable, so the
-# suite runs green without provisioning a database.
+# Includes a real pgvector database; hosted-model and full OCR acceptance remain local checks.
 
 name: CI
 
@@ -13,6 +12,20 @@ jobs:
   backend:
     name: Backend — tests
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_PASSWORD: atlas_ci
+          POSTGRES_DB: atlas_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d atlas_ci"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:atlas_ci@localhost:5432/atlas_ci
+      LANGCHAIN_TRACING_V2: 'false'
     defaults:
       run:
         working-directory: backend
@@ -28,6 +41,19 @@ jobs:
       # Slim set (no torch/Docling): enough for FastAPI, LangChain/LangGraph,
       # asyncpg, pydantic — everything the test suite imports.
       - run: pip install -r requirements-slim.txt pytest
+
+      - name: Apply database schema
+        run: |
+          python - <<'PY'
+          import asyncio, os
+          from pathlib import Path
+          import asyncpg
+          async def main():
+              conn = await asyncpg.connect(os.environ['DATABASE_URL'])
+              await conn.execute(Path('app/db/schema.sql').read_text())
+              await conn.close()
+          asyncio.run(main())
+          PY
 
       - run: python -m pytest tests -q
 

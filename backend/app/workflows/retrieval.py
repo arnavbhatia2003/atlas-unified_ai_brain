@@ -739,36 +739,50 @@ async def most_referenced_asset(conn: asyncpg.Connection) -> str | None:
     return row["unified_id"] if row else None
 
 
-async def document_search(conn: Any, query: str, document_id: int | None = None, k: int = 8) -> list[RetrievedRecord]:
-    """Page-level lexical retrieval, independent of asset extraction and NIM availability."""
-    # shortcut: JSON passage scan suits bounded classroom corpora; index a chunk table for larger corpora.
-    rows = await conn.fetch("""
-        select d.id, d.filename, d.system, c.chunk,
-               ts_rank_cd(to_tsvector('english', c.chunk->>'text'), websearch_to_tsquery('english', $1)) as rank
-        from document_parses d cross join lateral jsonb_array_elements(d.parsed->'chunks') c(chunk)
-        where ($2::bigint is null or d.id = $2)
-          and to_tsvector('english', c.chunk->>'text') @@ websearch_to_tsquery('english', $1)
-        order by rank desc, d.id, (c.chunk->>'index')::int limit $3
-    """, query, document_id, k)
-    # Natural-language questions often contain many unrelated stop words; OR is a recall fallback.
+async def document_search(conn: Any, query: str, document_id: int | None = None, k: int = 12) -> list[RetrievedRecord]:
+    """Read a bounded whole manual, or search the GIN-indexed passage corpus."""
+    rows = []
+    if document_id:
+        size = await conn.fetchval("select coalesce(sum(length(text)),0) from document_chunks where document_id=$1", document_id)
+        # shortcut: whole-document context is bounded to 60k characters; long PDFs use lexical retrieval.
+        if 0 < size <= 60000:
+            rows = await conn.fetch("""
+                select d.id,d.filename,d.status,d.parsed->'raw'->'unreadable_pages' as unreadable_pages,
+                       c.chunk_index,c.page,c.text,c.section,0::real as rank
+                from document_chunks c join document_parses d on d.id=c.document_id
+                where c.document_id=$1 order by c.chunk_index
+            """, document_id)
+    method = "whole_document" if rows else "indexed_keyword"
     if not rows:
         import re
-        terms = re.findall(r"[A-Za-z0-9][A-Za-z0-9_-]*", query)[:40]
-        if terms:
+        stop = set("a an the is are was were do does did of to in for and or on with what which who how when where can could would should please tell me give about from this that it its have has had according document manual pdf section compare consistent".split())
+        terms = [t for t in re.findall(r"[^\W_]+(?:[-_][^\W_]+)*", query, re.UNICODE)[:80] if t.casefold() not in stop]
+        search = ' OR '.join(terms)
+        if search:
             rows = await conn.fetch("""
-                select d.id, d.filename, d.system, c.chunk,
-                       ts_rank_cd(to_tsvector('english', c.chunk->>'text'), websearch_to_tsquery('english', $1)) as rank
-                from document_parses d cross join lateral jsonb_array_elements(d.parsed->'chunks') c(chunk)
-                where ($2::bigint is null or d.id = $2)
-                  and to_tsvector('english', c.chunk->>'text') @@ websearch_to_tsquery('english', $1)
-                order by rank desc, d.id, (c.chunk->>'index')::int limit $3
-            """, ' OR '.join(terms), document_id, k)
-    out = []
-    for row in rows:
-        chunk = _loads(row['chunk'])
-        out.append(RetrievedRecord(
-            citation=f"PDF:{row['id']}:p{chunk.get('page')}:c{chunk.get('index')}",
-            system=row['filename'], text=chunk.get('text', ''), similarity=float(row['rank']),
-            raw={'document_id': row['id'], 'page': chunk.get('page'), 'filename': row['filename']},
-        ))
-    return out
+                with terms as (
+                    select distinct unnest(tsvector_to_array(to_tsvector('english',$1) || to_tsvector('simple',$1))) as term
+                ), frequencies as (
+                    select term, count(c.document_id)::real as frequency
+                    from terms left join document_chunks c
+                      on ($2::bigint is null or c.document_id=$2)
+                     and c.tsv @@ plainto_tsquery('simple',term)
+                    group by term
+                )
+                select d.id,d.filename,d.status,d.parsed->'raw'->'unreadable_pages' as unreadable_pages,
+                    c.chunk_index,c.page,c.text,c.section,
+                    (select coalesce(sum(1.0/(frequency+1)),0) from frequencies
+                     where c.tsv @@ plainto_tsquery('simple',term)) as rank
+                from document_chunks c join document_parses d on d.id=c.document_id
+                where ($2::bigint is null or c.document_id=$2)
+                  and c.tsv @@ (websearch_to_tsquery('english',$1) || websearch_to_tsquery('simple',$1))
+                order by rank desc,
+                    ts_rank_cd(c.tsv,websearch_to_tsquery('english',$1) || websearch_to_tsquery('simple',$1)) desc,
+                    c.document_id,c.chunk_index limit $3
+            """, search, document_id, k)
+    return [RetrievedRecord(
+        citation=f"PDF:{r['id']}:p{r['page']}:c{r['chunk_index']}", system=r['filename'],
+        text=r['text'], similarity=float(r['rank']),
+        raw={'document_id':r['id'],'page':r['page'],'filename':r['filename'],'retrieval_method':method,'document_status':r['status'],
+             'unreadable_pages': json.loads(r['unreadable_pages']) if isinstance(r['unreadable_pages'],str) else r['unreadable_pages']},
+    ) for r in rows]

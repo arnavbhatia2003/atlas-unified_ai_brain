@@ -32,7 +32,7 @@ from pydantic import BaseModel, Field
 from app.db import get_pool
 from app.engine.graph.model import RelationType, asset_node
 from app.engine.graph.store import GraphStore
-from app.services.llm import get_fast_chat_model, resilient
+from app.services.llm import get_fast_chat_model, json_response_format, resilient
 
 from .base import emit, sse
 from .resolve_mention import resolve_mention
@@ -313,10 +313,7 @@ def _coerce_report(data: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _default_reason(question: str, evidence: dict[str, Any]) -> dict[str, Any]:
-    # ChatNVIDIA's structured-output path is unreliable for nested schemas (often
-    # returns None), so we prompt for plain JSON and parse it tolerantly. The fast
-    # model runs at temperature 0 → cleaner, better-grounded JSON than the MoE
-    # model, which tended to fabricate ungrounded RCA narratives here.
+    # Request constrained JSON, then apply the workflow's evidence checks.
     model = resilient(get_fast_chat_model())
     # An empty question is NOT an assertion that the asset failed; it simply asks
     # to diagnose whatever failures are linked (this node only runs when failure
@@ -326,7 +323,8 @@ async def _default_reason(question: str, evidence: dict[str, Any]) -> dict[str, 
     data: dict[str, Any] | None = None
     for _ in range(2):
         raw = await model.ainvoke(
-            [SystemMessage(content=_SYSTEM), HumanMessage(content=human)]
+            [SystemMessage(content=_SYSTEM), HumanMessage(content=human)],
+            response_format=json_response_format("RCAReport", RCAReport.model_json_schema()),
         )
         data = _extract_json(_text_of(raw)) or _extract_json(_reasoning_of(raw))
         if data:

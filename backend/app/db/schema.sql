@@ -26,6 +26,13 @@ create table if not exists source_records (
 );
 create index if not exists source_records_system_idx on source_records (system);
 
+create table if not exists source_record_revisions (
+    id bigserial primary key,
+    source_record_id bigint not null references source_records(id) on delete cascade,
+    raw_json jsonb not null,
+    replaced_at timestamptz not null default now()
+);
+
 -- Result of schema discovery per (system, field), plus the human-validation lock.
 create table if not exists discovered_fields (
     id                 bigserial primary key,
@@ -173,6 +180,17 @@ create table if not exists document_parses (
 );
 create index if not exists document_parses_system_idx on document_parses (system);
 create index if not exists document_parses_status_idx on document_parses (status);
+
+create table if not exists document_chunks (
+    document_id bigint not null references document_parses(id) on delete cascade,
+    chunk_index int not null,
+    page int,
+    section text not null default '',
+    text text not null,
+    tsv tsvector generated always as (to_tsvector('english', text) || to_tsvector('simple', text)) stored,
+    primary key (document_id, chunk_index)
+);
+create index if not exists document_chunks_tsv_idx on document_chunks using gin(tsv);
 
 -- ---------------------------------------------------------------------------
 -- Document extraction cache — the generic information-extraction output for one

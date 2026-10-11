@@ -142,7 +142,7 @@ def test_document_answers_validate_source_handles(monkeypatch, payload, expected
     from types import SimpleNamespace
     from app.workflows import chat
     class Model:
-        async def ainvoke(self, messages):
+        async def ainvoke(self, messages, **kwargs):
             return SimpleNamespace(content=json.dumps(payload))
     monkeypatch.setattr(chat, "get_fast_chat_model", lambda: Model())
     monkeypatch.setattr(chat, "resilient", lambda model: model)

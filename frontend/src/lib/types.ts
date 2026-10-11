@@ -4,13 +4,15 @@ export interface Connector {
   id: number
   name: string
   description: string
-  kind: 'manual' | 'api'
+  kind: 'manual' | 'api' | 'document'
+  documents: (Pick<DocumentParse, 'id' | 'filename' | 'page_count' | 'passages' | 'status' | 'error' | 'extraction'>)[]
   endpoint: string | null
   status: string
   records: number
   last_synced_at: string | null
   last_result: {
     new?: number
+    updated?: number
     skipped?: number
     unified_assets?: number
     edges?: number
@@ -104,6 +106,8 @@ export interface ReviewItem {
 
 /** A durably-stored document parse (chain-of-custody record). */
 export interface DocumentParse {
+  passages: number
+  extraction: { status: string; records?: number; eligible_passages?: number; sampled_passages?: number; coverage?: string } | null
   unreadable_pages?: number[]
   id: number
   system: string

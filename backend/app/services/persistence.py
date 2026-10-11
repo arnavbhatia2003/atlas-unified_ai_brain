@@ -16,6 +16,7 @@ from app.engine.graph.model import Edge
 from app.engine.resolution import ResolutionResult
 from app.engine.resolution.models import MergeDecision
 from app.engine.schema_discovery import SchemaDiscoveryResult
+from app.knowledge.identity import CanonicalConcept, is_anchor_eligible
 
 _NEEDS_REVIEW = {MergeDecision.SUGGESTED, MergeDecision.REVIEW}
 
@@ -73,6 +74,8 @@ async def rebuild_projection(
 
         # unified assets + identifiers + source-record links
         for c in result.clusters:
+            has_anchor = any(is_anchor_eligible(CanonicalConcept(k)) for k in c.identifiers if k in CanonicalConcept._value2member_map_)
+            needs_review = c.decision in _NEEDS_REVIEW or (c.decision == MergeDecision.SINGLETON and not has_anchor)
             primary_serial = (c.identifiers.get("serial_number") or [None])[0]
             await conn.execute(
                 """
@@ -82,8 +85,8 @@ async def rebuild_projection(
                 """,
                 c.cluster_id,
                 names.get(c.cluster_id) or primary_serial or c.cluster_id,
-                c.decision in _NEEDS_REVIEW,
-                "" if c.decision not in _NEEDS_REVIEW else f"decision={c.decision.value}",
+                needs_review,
+                (f"decision={c.decision.value}" if c.decision in _NEEDS_REVIEW else "No validated instance identifier") if needs_review else "",
             )
             for concept, values in c.identifiers.items():
                 for v in values:

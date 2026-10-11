@@ -58,27 +58,26 @@ def _http_get_json(url: str) -> Any:
 def _coerce_records(data: Any) -> list[dict[str, Any]]:
     """Accept a list of records, {"records": [...]}, or a systems-map, or one record."""
     if isinstance(data, str):
-        try:
-            data = json.loads(data)
-        except json.JSONDecodeError:
-            return []
+        data = json.loads(data)
     if data is None:
         return []
     if isinstance(data, list):
-        return [d for d in data if isinstance(d, dict)]
+        if any(not isinstance(d, dict) for d in data):
+            raise ValueError("Every connector record must be a JSON object")
+        return data
     if isinstance(data, dict):
         if isinstance(data.get("records"), list):
-            return [d for d in data["records"] if isinstance(d, dict)]
+            return _coerce_records(data["records"])
         if data and all(isinstance(v, list) for v in data.values()):
             out: list[dict[str, Any]] = []
             for v in data.values():
-                out.extend(d for d in v if isinstance(d, dict))
+                out.extend(_coerce_records(v))
             return out
         return [data]
-    return []
+    raise ValueError("Connector payload must contain JSON records")
 
 
-def _serialize(row: Any, record_count: int) -> dict[str, Any]:
+def _serialize(row: Any, record_count: int, documents: list[dict] | None = None) -> dict[str, Any]:
     last_result = row["last_result"]
     if isinstance(last_result, str):
         last_result = json.loads(last_result)
@@ -90,6 +89,7 @@ def _serialize(row: Any, record_count: int) -> dict[str, Any]:
         "endpoint": row["endpoint"],
         "status": row["status"],
         "records": record_count,
+        "documents": documents or [],
         "last_synced_at": row["last_synced_at"].isoformat() if row["last_synced_at"] else None,
         "last_result": last_result,
         "created_at": row["created_at"].isoformat() if row["created_at"] else None,
@@ -124,18 +124,31 @@ async def list_connectors() -> list[dict[str, Any]]:
         counts = await conn.fetch(
             "select system, count(*) as c from source_records group by system"
         )
+        documents = await conn.fetch("""
+            select id,system,filename,page_count,status,error,
+                   jsonb_array_length(coalesce(parsed->'chunks','[]'::jsonb)) as passages,
+                   parsed->'raw'->'asset_extraction' as extraction
+            from document_parses order by id
+        """)
     by_system = {r["system"]: r["c"] for r in counts}
-    return [_serialize(r, by_system.get(r["name"], 0)) for r in rows]
+    by_doc: dict[str, list[dict]] = {}
+    for d in documents:
+        extraction = d["extraction"]
+        if isinstance(extraction, str): extraction = json.loads(extraction)
+        by_doc.setdefault(d["system"], []).append({**dict(d), "extraction": extraction})
+    return [_serialize(r, by_system.get(r["name"], 0), by_doc.get(r["name"], [])) for r in rows]
 
 
 async def delete_connector(connector_id: int) -> AsyncIterator[dict[str, Any]]:
     """Delete a connector, drop its records, and re-resolve the remaining corpus."""
     pool = get_pool()
     async with pool.acquire() as conn:
-        row = await conn.fetchrow("select name from connectors where id=$1", connector_id)
+        row = await conn.fetchrow("select name,kind from connectors where id=$1", connector_id)
         if row is None:
             yield {"step": "error", "message": "Connector not found"}
             return
+        if row["kind"] == "document":
+            raise ValueError("PDF sources retain their originals; manage them from Documents")
         await conn.execute("delete from source_records where system=$1", row["name"])
         await conn.execute("delete from connectors where id=$1", connector_id)
     yield {"step": "start", "message": f"Removed {row['name']}; re-resolving remaining sources"}
@@ -150,12 +163,16 @@ async def sync_connector(
 ) -> AsyncIterator[dict[str, Any]]:
     pool = get_pool()
     async with pool.acquire() as conn:
+        row = await conn.fetchrow("select * from connectors where id=$1", connector_id)
+        if row is not None and row["kind"] == "document":
+            yield {"step": "error", "message": "PDF sources cannot sync JSON; reprocess the original from Documents"}
+            return
         if override_payload is not None:
             await conn.execute(
                 "update connectors set payload=$2::jsonb where id=$1",
                 connector_id, json.dumps(override_payload),
             )
-        row = await conn.fetchrow("select * from connectors where id=$1", connector_id)
+            row = await conn.fetchrow("select * from connectors where id=$1", connector_id)
     if row is None:
         yield {"step": "error", "message": "Connector not found"}
         return
@@ -178,14 +195,20 @@ async def sync_connector(
     yield {"step": "fetch", "message": f"Fetched {len(records)} record(s) from {name}"}
 
     summary: dict[str, Any] | None = None
+    failed = False
     try:
         async for ev in pipeline.ingest_records({name: records}):
             if ev.get("step") == "start":
                 continue
             if ev.get("step") == "complete":
                 summary = ev.get("summary")
+            if ev.get("step") == "error":
+                failed = True
             yield ev
-        await _finish(connector_id, summary)
+        if failed:
+            await _set_status(connector_id, "error")
+        else:
+            await _finish(connector_id, summary)
     except BaseException:
         await _set_status(connector_id, "error")
         raise

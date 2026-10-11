@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { api } from '@/lib/api'
+import { useAsync } from '@/lib/useAsync'
+import type { Overview } from '@/lib/types'
 import './landing.css'
 
 // ── utilities ported from the reference landing page ───────────────────
@@ -16,14 +19,6 @@ function pad(n: number, l = 2): string {
   while (s.length < l) s = '0' + s
   return s
 }
-function rand(a: number, b: number): number {
-  return a + Math.random() * (b - a)
-}
-function fmt(n: number, d: number, group = false): string {
-  const s = d > 0 ? n.toFixed(d) : String(Math.round(n))
-  return group && d === 0 ? Math.round(n).toLocaleString('en-US') : s
-}
-
 /** UTC clock in the nav. */
 function useClock(): string {
   const [t, setT] = useState('00:00:00 UTC')
@@ -87,148 +82,12 @@ function useReveal(): React.RefObject<HTMLDivElement | null> {
   return ref
 }
 
-const easeOut = (t: number): number => (t === 1 ? 1 : 1 - Math.pow(2, -10 * t))
-
-/** Count-up number driven by rAF easing; honors reduced motion. */
-function useCountUp(target: number, decimals = 0): React.RefObject<HTMLElement | null> {
-  const ref = useRef<HTMLElement>(null)
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const paint = (v: number) => {
-      el.textContent = fmt(v, decimals)
-    }
-    if (reduced()) {
-      paint(target)
-      return
-    }
-    let raf = 0
-    let start: number | null = null
-    const dur = 1700
-    const frame = (ts: number) => {
-      if (start === null) start = ts
-      const t = Math.min((ts - start) / dur, 1)
-      paint(target * easeOut(t))
-      if (t < 1) raf = requestAnimationFrame(frame)
-    }
-    raf = requestAnimationFrame(frame)
-    return () => cancelAnimationFrame(raf)
-  }, [target, decimals])
-  return ref
-}
-
-/** Values that jitter periodically, like live telemetry. */
-function useJitter(min: number, max: number, dec: number, ms = 1100): string {
-  const [v, setV] = useState(() => fmt(rand(min, max), dec, dec === 0 && max >= 1000))
-  useEffect(() => {
-    if (reduced()) return
-    const id = setInterval(() => {
-      setV(fmt(rand(min, max), dec, dec === 0 && max >= 1000))
-    }, ms)
-    return () => clearInterval(id)
-  }, [min, max, dec, ms])
-  return v
-}
-
-function hex(n: number): string {
-  let s = ''
-  for (let i = 0; i < n; i++) s += '0123456789ABCDEF'[Math.floor(Math.random() * 16)]
-  return s
-}
-function stamp(): string {
-  const t = new Date()
-  return `${pad(t.getUTCHours())}:${pad(t.getUTCMinutes())}:${pad(t.getUTCSeconds())}`
-}
-
-const LOG_HOSTS = ['DOCLING', 'DISCOVERY', 'RESOLUTION', 'GRAPH_CTE', 'RRF_RAG', 'RCA_AGENT', 'COMPLIANCE']
-function makeLine(): { warn: boolean; text: string; bold: string } {
-  void LOG_HOSTS // host tag is flavor only; lines are composed per-branch below
-  const r = Math.random()
-  if (r < 0.12)
-    return {
-      warn: true,
-      bold: '',
-      text: `[${stamp()}] ${hex(4)} TRANSITIVE CONFLICT GUARD: BLOCKED MERGE ua-0001 <-> ua-0003 (SERIAL CLASH)`,
-    }
-  let bold: string
-  if (r < 0.28) bold = `${hex(4)} SCHEMA DISCOVERY: HERST_SERIAL -> serial_number (w=0.95, c=1.00)`
-  else if (r < 0.42) bold = `${hex(4)} DOCLING PARSE COMMITTED — SHA-256: 7f8a${hex(4)} SEALED`
-  else if (r < 0.58) bold = `${hex(4)} HYBRID RRF SEARCH: pgvector + tsvector FUSED (k=60, top_n=6)`
-  else if (r < 0.72) bold = `${hex(4)} MULTI-HOP RCA: asset:ua-0003 -> DEPENDS_ON -> asset:ua-0005 UPSTREAM FAULT`
-  else if (r < 0.86) bold = `${hex(4)} DETERMINISTIC COMPLIANCE AUDIT: 14 ASSETS AT RISK (SQL NOT EXISTS)`
-  else bold = `${hex(4)} ASSET ua-0001 MATERIALIZED INTO OKF DOSSIER — TSVECTOR RE-INDEXED`
-  return { warn: false, bold, text: `[${stamp()}] ${bold}` }
-}
-
-const MAX_LINES = 16
-
-/** Simulated Atlas ingest bus: queue + char-typed lines, reduced-motion safe. */
-function useTerminal() {
-  const bodyRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const body = bodyRef.current
-    if (!body) return
-    const queue: { warn: boolean; text: string; bold: string }[] = []
-    const refill = () => {
-      while (queue.length < 4) queue.push(makeLine())
-    }
-    const append = (warn: boolean, html: string) => {
-      const p = document.createElement('p')
-      if (warn) p.className = 'warn'
-      p.innerHTML = html
-      body.appendChild(p)
-      while (body.children.length > MAX_LINES) body.removeChild(body.firstChild!)
-    }
-    if (reduced()) {
-      for (let i = 0; i < 9; i++) {
-        const l = makeLine()
-        append(l.warn, l.warn ? l.text : `<b>${l.bold}</b>`)
-      }
-      append(false, '[READY] ATLAS REASONING ENGINE ATTACHED — MOTION REDUCED MODE')
-      return
-    }
-    const cursor = document.createElement('p')
-    cursor.innerHTML = '<span class="term__cursor" aria-hidden="true"></span>'
-    body.appendChild(cursor)
-    refill()
-    let typing = false
-    let typer: number | undefined
-    const id = setInterval(() => {
-      if (typing || !queue.length) return
-      typing = true
-      const line = queue.shift()!
-      refill()
-      const p = document.createElement('p')
-      if (line.warn) p.className = 'warn'
-      body.insertBefore(p, cursor)
-      while (body.children.length > MAX_LINES) body.removeChild(body.firstChild!)
-      const plain = line.warn ? line.text : line.text.replace(/<b>|<\/b>/g, '')
-      let ci = 0
-      typer = setInterval(() => {
-        ci += 3
-        p.textContent = plain.slice(0, ci)
-        if (ci >= plain.length) {
-          clearInterval(typer)
-          if (line.warn) p.textContent = line.text
-          else p.innerHTML = `<b>${line.bold}</b>`
-          typing = false
-        }
-      }, 16)
-    }, 900)
-    return () => {
-      clearInterval(id)
-      if (typer) clearInterval(typer)
-    }
-  }, [])
-  return bodyRef
-}
-
 // ── section components ────────────────────────────────────────────────
 
 const NAV_LINKS = [
   ['CAPABILITIES', '#capabilities'],
   ['SYSTEMS', '#systems'],
-  ['TELEMETRY', '#grid'],
+  ['EVIDENCE', '#grid'],
   ['CONNECTORS', '#network'],
   ['TOPOLOGY', '#procurement'],
   ['DOCTRINE', '#manifesto'],
@@ -245,7 +104,7 @@ function Nav({ clock }: { clock: string }) {
             ATLAS<em>&nbsp;/&nbsp;</em>BRAIN
           </span>
           <br />
-          <span className="brand__sub">ONE DATABASE — ZERO HALLUCINATIONS</span>
+          <span className="brand__sub">SOURCE EVIDENCE + HUMAN REVIEW</span>
         </span>
       </Link>
       <nav className="nav__links" aria-label="Primary">
@@ -282,9 +141,7 @@ function Nav({ clock }: { clock: string }) {
 }
 
 function Hero() {
-  const f1 = useJitter(0.98, 1.0, 2)
-  const assets = useJitter(12800, 12900, 0)
-  const ttrc = useJitter(18, 28, 0)
+  const { data } = useAsync<Overview>(s => api.overview(s))
   return (
     <section className="hero" id="top">
       <span className="cross cross--tl" aria-hidden>+</span>
@@ -302,17 +159,15 @@ function Hero() {
       </div>
 
       <h1 className="hero__title">
-        <span data-reveal>AUTONOMOUS</span>
+        <span data-reveal>EVIDENCE</span>
         <span className="stroke" data-reveal style={{ ['--d' as string]: '0.09s' }}>
-          PLANT REASONING<span className="sq" aria-hidden />
+          AND ASSET CONTEXT<span className="sq" aria-hidden />
         </span>
       </h1>
 
       <div className="hero__foot">
         <p className="hero__sub" data-reveal style={{ ['--d' as string]: '0.14s' }}>
-          ATLAS UNIFIES <b>12 DISCONNECTED ENTERPRISE SILOS</b> (SAP PM, MAXIMO, SCADA, P&amp;IDS)
-          INTO A SINGLE <b>GROUNDED KNOWLEDGE GRAPH</b>. PHYSICS WEIGHTS /// ZERO HALLUCINATIONS ///{' '}
-          <b>100% CITED EVIDENCE</b>.
+          ASK QUESTIONS OF YOUR PDFs. CONNECT JSON OR PUBLIC APIs TO BUILD A <b>REVIEWABLE ASSET GRAPH</b>. CITE SOURCES, EXPOSE CONFLICTS, AND KEEP UNCERTAIN MATCHES FOR HUMAN REVIEW.
         </p>
         <div className="hero__ctas" data-reveal style={{ ['--d' as string]: '0.2s' }}>
           <Link className="btn btn--red" to="/graph">
@@ -324,28 +179,28 @@ function Hero() {
         </div>
         <dl className="telemetry" data-reveal style={{ ['--d' as string]: '0.26s' }}>
           <div>
-            <dt>RESOLUTION F1</dt>
+            <dt>SOURCE RECORDS</dt>
             <dd>
-              <span>{f1}</span>
-              <small>SCORE</small>
+              <span>{data?.source_records ?? '—'}</span>
+              <small>STORED</small>
             </dd>
           </div>
           <div>
             <dt>UNIFIED ASSETS</dt>
-            <dd>{assets}</dd>
+            <dd>{data?.unified_assets ?? '—'}</dd>
           </div>
           <div>
-            <dt>GROUNDING RATE</dt>
+            <dt>OPEN REVIEWS</dt>
             <dd>
-              <span>100.0</span>
-              <small>%</small>
+              <span>{data?.review_open ?? '—'}</span>
+              <small>PENDING</small>
             </dd>
           </div>
           <div>
-            <dt>MEDIAN TTRC</dt>
+            <dt>GRAPH EDGES</dt>
             <dd>
-              <span>{ttrc}</span>
-              <small>SEC</small>
+              <span>{data?.edges_total ?? '—'}</span>
+              <small>STORED</small>
             </dd>
           </div>
         </dl>
@@ -356,13 +211,13 @@ function Hero() {
 
 const MQ_ITEMS = [
   'RESOLUTION: REVIEWABLE MATCHES',
-  '100% CITATION GROUNDING',
+  'PDF SOURCE HANDLE VALIDATION',
   'SINGLE POSTGRESQL ENGINE',
   'ANSI SQL:1999 RECURSIVE CTES',
   'NVIDIA NEMOTRON-3 2048-DIM',
   'DOCLING TABLEFORMER SHA-256',
   'DETERMINISTIC SQL COMPLIANCE',
-  'GREEN IT: <512MB RAM FOOTPRINT',
+  'OCR REQUIRES THE FULL BACKEND',
 ]
 
 function Marquee() {
@@ -386,26 +241,13 @@ function Marquee() {
   )
 }
 
-function Stat({ label, target, decimals, foot, d }: { label: string; target: number; decimals: number; foot: string; d: number }) {
-  const ref = useCountUp(target, decimals)
-  return (
-    <div className="stat" data-reveal style={{ ['--d' as string]: `${d}s` }}>
-      <span className="stat__label">{label}</span>
-      <data className="stat__num" ref={ref as unknown as React.Ref<HTMLDataElement>}>
-        {decimals > 0 ? target.toFixed(decimals) : String(target)}
-      </data>
-      <span className="stat__foot">{foot}</span>
-    </div>
-  )
-}
-
 const CAPS = [
   { idx: '01', h: '[ INGESTION ]', p: 'Docling visual layout analysis + TableFormer PDF parsing. Two-Phase Chain-of-Custody with SHA-256 boundary persistence.', stat: 'DURABLE CUSTODY HASH' },
-  { idx: '02', h: '[ DISCOVERY ]', p: 'Autonomous Tri-Signal Voting (Pattern ≥0.80, Cardinality ≥0.80, Semantics ≥0.80) with sequential ID arithmetic guards.', stat: 'ZERO MANUAL MAPPING' },
+  { idx: '02', h: '[ DISCOVERY ]', p: 'Autonomous Tri-Signal Voting (Pattern ≥0.80, Cardinality ≥0.80, Semantics ≥0.80) with sequential ID arithmetic guards.', stat: 'INFERRED SCHEMA NEEDS REVIEW' },
   { idx: '03', h: '[ RESOLUTION ]', p: 'Physics-weighted Union-Find clustering (Serial w=0.95, MAC w=0.90) with Transitive Bridge-Conflict Guard (×0.40 penalty).', stat: 'MATCH QUALITY REQUIRES EVALUATION' },
-  { idx: '04', h: '[ GRAPH CTE ]', p: 'Dual-Layer Knowledge Graph projected into PostgreSQL. Multi-hop traversal via ANSI SQL:1999 Recursive CTEs.', stat: 'SUB-10MS TRAVERSAL' },
-  { idx: '05', h: '[ HYBRID RRF ]', p: 'Tri-modal search combining pgvector (2048-dim), BM25 tsvector GIN, and OKF dossiers with Nemotron Cross-Encoder reranking.', stat: 'RRF FUSION (K=60)' },
-  { idx: '06', h: '[ COMPLIANCE ]', p: 'Deterministic SQL anti-join (NOT EXISTS) regulatory safety audits. The LLM only authors prose; SQL decides compliance.', stat: '100% REPEATABILITY' },
+  { idx: '04', h: '[ GRAPH CTE ]', p: 'Dual-Layer Knowledge Graph projected into PostgreSQL. Multi-hop traversal via ANSI SQL:1999 Recursive CTEs.', stat: 'BOUNDED SQL TRAVERSAL' },
+  { idx: '05', h: '[ HYBRID RRF ]', p: 'Tri-modal search combining pgvector (2048-dim), PostgreSQL full-text search, and OKF dossiers with Nemotron Cross-Encoder reranking.', stat: 'RRF FUSION (K=60)' },
+  { idx: '06', h: '[ COMPLIANCE ]', p: 'Deterministic SQL anti-join (NOT EXISTS) regulatory safety audits. The LLM only authors prose; SQL decides compliance.', stat: 'DETERMINISTIC RULE CHECKS' },
 ]
 
 function Capabilities() {
@@ -421,7 +263,7 @@ function Capabilities() {
           PILLARS
         </h2>
         <p data-reveal style={{ ['--d' as string]: '0.12s' }}>
-          SIX DETERMINISTIC SUBSYSTEMS. ONE UNIFIED POSTGRESQL BRAIN. ZERO STOCHASTIC GUESSWORK.
+          SIX CONNECTED SUBSYSTEMS. MODEL OUTPUTS AND HEURISTIC MATCHES REQUIRE VALIDATION.
         </p>
       </header>
       <div className="cap-grid gridlines">
@@ -448,9 +290,9 @@ const SYSROWS = [
     desc: 'Bounded LangGraph state-machine router streaming token deltas over Server-Sent Events (SSE). Bypasses LLM on structured lookups; enforces verified citations on every answer.',
     specs: [
       ['ROUTING', 'DETERMINISTIC FSM'],
-      ['REASONER', 'NEMOTRON 550B MoE'],
-      ['TTFT', '~1.9 SEC'],
-      ['CITATIONS', '100% GROUNDED'],
+      ['REASONER', 'NEMOTRON-3 SUPER'],
+      ['LATENCY', 'DOCUMENT / LOAD DEPENDENT'],
+      ['CITATIONS', 'SOURCE HANDLES CHECKED'],
     ],
     to: '/ask',
   },
@@ -530,96 +372,14 @@ function Systems() {
 }
 
 function Telemetry() {
-  const bodyRef = useTerminal()
-  const nodes = useJitter(12790, 12910, 0)
-  const cte = useJitter(3, 7, 1)
-  const rpm = useJitter(18, 32, 0)
-  return (
-    <section className="section" id="grid">
-      <header className="sec-head">
-        <span className="sec-head__tag" data-reveal>
-          [ SEC.04 ]
-        </span>
-        <h2 data-reveal style={{ ['--d' as string]: '0.06s' }}>
-          LIVE TELEMETRY
-        </h2>
-        <p data-reveal style={{ ['--d' as string]: '0.12s' }}>
-          REAL-TIME EXECUTION TRACES FROM THE ATLAS REASONING ENGINE AND DATABASE EVENT BUS.
-        </p>
-      </header>
-      <div className="term-wrap" data-reveal>
-        <div className="term__bar">
-          <b>ATLAS://INGEST.BUS</b>
-          <i>TTY/04 — DB POOL: ASYNCPG :5432 — READ ONLY</i>
-        </div>
-        <div className="term__body" ref={bodyRef} role="log" aria-live="off" aria-label="Simulated Atlas pipeline log" />
-        <aside className="term-side">
-          <div>
-            <h3>// CONNECTED SILOS</h3>
-            <ul>
-              <li>
-                <span>SAP PM / ERP</span>
-                <span>SYNCED (23 RECS)</span>
-              </li>
-              <li className="hot">
-                <span>DOCLING / P&amp;ID PDF</span>
-                <span>SHA-256 SEALED</span>
-              </li>
-              <li>
-                <span>SCADA / HISTORIAN</span>
-                <span>NOMINAL</span>
-              </li>
-              <li>
-                <span>CISCO / CMDB</span>
-                <span>LINKED</span>
-              </li>
-              <li>
-                <span>OSHA COMPLIANCE</span>
-                <span>DETERMINISTIC</span>
-              </li>
-            </ul>
-          </div>
-          <div>
-            <h3>// RESOLUTION SUMMARY</h3>
-            <ul>
-              <li>
-                <span>CANONICAL ASSETS</span>
-                <span>6 UNIFIED</span>
-              </li>
-              <li>
-                <span>BRIDGE CONFLICTS</span>
-                <span>0 UNRESOLVED</span>
-              </li>
-              <li>
-                <span>REVIEW QUEUE</span>
-                <span>0 PENDING</span>
-              </li>
-            </ul>
-          </div>
-        </aside>
-      </div>
-      <dl className="readouts gridlines">
-        <div className="readout" data-reveal>
-          <dt>ACTIVE GRAPH NODES</dt>
-          <dd>{nodes}</dd>
-        </div>
-        <div className="readout" data-reveal style={{ ['--d' as string]: '0.08s' }}>
-          <dt>SQL CTE TRAVERSAL</dt>
-          <dd>
-            <span>{cte}</span>
-            <small>MS</small>
-          </dd>
-        </div>
-        <div className="readout" data-reveal style={{ ['--d' as string]: '0.16s' }}>
-          <dt>NVIDIA NIM RATE BUDGET</dt>
-          <dd>
-            <span>{rpm}</span>
-            <small>/35 RPM</small>
-          </dd>
-        </div>
-      </dl>
-    </section>
-  )
+  const { data, error } = useAsync<Overview>(s => api.overview(s))
+  return <section className="section" id="grid">
+    <header className="sec-head"><span className="sec-head__tag">[ SEC.04 ]</span><h2>STORED EVIDENCE</h2><p>DATABASE SNAPSHOT. OPEN WORKFLOWS TO SEE ACTUAL EXECUTION STATUS.</p></header>
+    <div className="term-wrap"><div className="term__bar"><b>ATLAS://EVIDENCE</b><i>ACTUAL SOURCE RECORDS</i></div>
+      <div className="term__body">{error ? <p>Backend unavailable — counts could not be loaded.</p> : data?.recent_evidence.length ? data.recent_evidence.map(r => <p key={r.citation}><b>{r.system} · {r.citation}</b> {r.text.slice(0,240)}</p>) : <p>No asset evidence loaded.</p>}</div>
+      <aside className="term-side"><h3>// CURRENT INDEX</h3><ul><li><span>SOURCE RECORDS</span><span>{data?.source_records ?? '—'}</span></li><li><span>CANONICAL ASSETS</span><span>{data?.unified_assets ?? '—'}</span></li><li><span>OPEN REVIEWS</span><span>{data?.review_open ?? '—'}</span></li></ul></aside>
+    </div>
+  </section>
 }
 
 const REGIONS = [
@@ -644,7 +404,7 @@ function Connectors() {
             <br />
             <em>ALL SILOS.</em>
             <br />
-            ZERO SEAMS.
+            SOURCE MAPPING.
           </h3>
         </div>
         <div data-reveal style={{ ['--d' as string]: '0.12s' }}>
@@ -677,13 +437,13 @@ const TIERS = [
   {
     tag: 'TIER / A',
     h: '[ EDGE SLIM ]',
-    price: '<512 MB',
+    price: 'TEXT ONLY',
     unit: 'SINGLE-CONTAINER DOCKER',
     rows: [
       ['DATABASE', 'POSTGRESQL + PGVECTOR'],
       ['PARSER', 'PYPDFIUM2 STREAM'],
       ['HARDWARE', '2GB RAM EDGE RACK'],
-      ['SLA', 'AIR-GAPPED COMPLIANT'],
+      ['OCR', 'FULL BACKEND REQUIRED'],
     ],
     to: '/connectors',
     cta: 'DEPLOY SLIM',
@@ -692,7 +452,7 @@ const TIERS = [
   {
     tag: 'TIER / B',
     h: '[ HYBRID CLOUD ]',
-    price: 'RECOMMENDED',
+    price: 'DEPLOYMENT OPTION',
     unit: 'SUPABASE + RAILWAY + VERCEL',
     rows: [
       ['DATA TIER', 'SUPABASE POSTGRESQL 16'],
@@ -701,18 +461,18 @@ const TIERS = [
       ['MODELS', 'NVIDIA NIM FREE TIER (35 RPM)'],
     ],
     to: '/ask',
-    cta: 'LAUNCH LIVE INSTANCE',
+    cta: 'OPEN COPILOT',
     hot: true,
   },
   {
     tag: 'TIER / C',
-    h: '[ AIR-GAPPED ]',
+    h: '[ FUTURE SELF-HOSTED ]',
     price: 'SOVEREIGN',
-    unit: 'ZERO INTERNET EGRESS',
+    unit: 'REQUIRES NEW INFERENCE CONFIGURATION',
     rows: [
       ['INFERENCE', 'LOCAL VLLM / NIM RACK'],
-      ['SECURITY', 'ZERO DATA LEAKAGE'],
-      ['COMPLIANCE', 'ISO 14224 / 55000'],
+      ['STATUS', 'NOT IMPLEMENTED / VERIFIED'],
+      ['COMPLIANCE', 'NO CERTIFICATION CLAIM'],
       ['AUDIT', 'DETERMINISTIC SQL'],
     ],
     to: '/review',
@@ -734,8 +494,7 @@ function Topology() {
           TOPOLOGY
         </h2>
         <p data-reveal style={{ ['--d' as string]: '0.12s' }}>
-          ENGINEERED FOR PRODUCTION. DEPLOYABLE TO THE CLOUD OR AIR-GAPPED ON-PREMISE INDUSTRIAL
-          SERVERS.
+          LOCAL DEMONSTRATOR WITH HOSTED NVIDIA INFERENCE. PRODUCTION NEEDS AUTHENTICATION, DURABLE JOBS, AND DEPLOYMENT VALIDATION.
         </p>
       </header>
       <div className="proc gridlines">
@@ -866,7 +625,7 @@ function Footer() {
                 ATLAS<em>&nbsp;/&nbsp;</em>BRAIN
               </span>
               <br />
-              <span className="brand__sub">ONE DATABASE — ZERO HALLUCINATIONS</span>
+              <span className="brand__sub">SOURCE EVIDENCE + HUMAN REVIEW</span>
             </span>
           </span>
           <p>
@@ -986,12 +745,6 @@ export function Landing() {
       <main id="l-main" ref={mainRef}>
         <Hero />
         <Marquee />
-        <div className="stats gridlines" id="stats">
-          <Stat label="RESOLUTION F1 SCORE" target={1.0} decimals={2} foot="ZERO CROSS-ASSET CORRUPTION" d={0} />
-          <Stat label="CITATION GROUNDING RATE" target={100} decimals={0} foot="EVERY CLAIM CITES RAW DB RECORD" d={0.08} />
-          <Stat label="MEDIAN TIME TO ROOT CAUSE" target={24} decimals={0} foot="VS 45 MIN MANUAL SEARCH" d={0.16} />
-          <Stat label="SERVER MEMORY FOOTPRINT" target={480} decimals={0} foot="GREEN IT SINGLE-CONTAINER" d={0.24} />
-        </div>
         <Capabilities />
         <Systems />
         <Telemetry />

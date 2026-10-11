@@ -31,7 +31,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 from app.knowledge.identity import CanonicalConcept, weight_of
 from app.knowledge.patterns import ALL_PATTERNS
-from app.services.llm import get_extract_model, resilient
+from app.services.llm import get_extract_model, json_response_format, resilient
 
 from .documents import ParsedDocument
 
@@ -77,7 +77,7 @@ def _records_from_tables(parsed: ParsedDocument) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     for ti, tbl in enumerate(parsed.tables):
         for ri, row in enumerate(tbl.rows):
-            rid = f"{parsed.filename}#p{tbl.page}#t{ti}#r{ri}"
+            rid = f"{parsed.filename}#{parsed.sha256[:16]}#p{tbl.page}#t{ti}#r{ri}"
             rec: dict[str, Any] = {"record_id": rid}
             # keep original columns as descriptive content
             for k, val in row.items():
@@ -85,8 +85,12 @@ def _records_from_tables(parsed: ParsedDocument) -> list[dict[str, Any]]:
                     continue
                 rec[str(k)] = str(val)
                 concept = _ident_concept(str(val))
-                if concept and concept not in rec and raw_id.strip().casefold() in chunk.text.casefold():
+                if concept and concept not in rec:
                     rec[concept] = str(val).strip()
+            # Reference specifications and pinout rows are knowledge, not installed assets.
+            if not any(k in rec for k in ("serial_number", "asset_tag", "vin", "mac_address", "imei", "udi", "uuid")):
+                continue
+            rec["_entity_kind"] = "physical_instance"
             rec["_citation"] = rid
             rec["_page"] = tbl.page
             rec["_section"] = tbl.section or ""
@@ -103,6 +107,11 @@ _SYSTEM = (
     "OPERATIONAL EVENT the passage reports about them.\n"
     "For each asset mention, capture:\n"
     "  - asset: a short natural name for the thing (as written)\n"
+    "  - entity_kind: physical_instance for a particular installed/observed asset; "
+    "functional_position for an installation location; equipment_model for a "
+    "product specification; component_type for a generic component; unspecified "
+    "when the passage does not establish this. A manual describing a model does "
+    "NOT establish that an installed instance exists.\n"
     "  - identifiers: any tag/serial/model/id-LIKE strings shown for it (verbatim)\n"
     "  - kind: 'failure' if the passage reports a fault/incident/damage/anomaly; "
     "'rule' if it states a regulation/obligation/requirement/permit; 'work_order' "
@@ -119,11 +128,23 @@ _SYSTEM = (
 
 _JSON_SHAPE = (
     '\n\nReturn ONLY JSON (no prose, no fences): '
-    '{"mentions":[{"asset":"name","identifiers":["..."],'
+    '{"mentions":[{"asset":"name","entity_kind":"physical_instance|functional_position|equipment_model|component_type|unspecified","identifiers":["..."],'
     '"kind":"failure|rule|work_order|inspection|none","detail":"one sentence",'
     '"is_anomaly":true,"component":"","symptoms":["..."],"sensors":["..."],'
     '"rule_id":"","status":""}]}'
 )
+
+_MENTION_SCHEMA = {
+    "type": "object", "properties": {"mentions": {"type": "array", "items": {
+        "type": "object", "properties": {
+            **{k: {"type": "string"} for k in ["asset", "detail", "component", "rule_id", "status"]},
+            **{k: {"type": "array", "items": {"type": "string"}} for k in ["identifiers", "symptoms", "sensors"]},
+            "entity_kind": {"type": "string", "enum": ["physical_instance", "functional_position", "equipment_model", "component_type", "unspecified"]},
+            "kind": {"type": "string", "enum": ["failure", "rule", "work_order", "inspection", "none"]},
+            "is_anomaly": {"type": "boolean"}},
+        "required": ["asset", "entity_kind", "identifiers", "kind", "detail", "is_anomaly", "component", "symptoms", "sensors", "rule_id", "status"],
+        "additionalProperties": False}}}, "required": ["mentions"], "additionalProperties": False,
+}
 
 
 def _text_of(raw: Any) -> str:
@@ -158,20 +179,18 @@ def _as_list(v: Any) -> list[str]:
 
 async def _ie_chunk(model: Any, chunk_text: str) -> list[dict[str, Any]]:
     human = f"Passage:\n{chunk_text}{_JSON_SHAPE}"
-    try:
-        out = await model.ainvoke(
+    out = await model.ainvoke(
             [
                 SystemMessage(content="detailed thinking off\n" + _SYSTEM),
                 HumanMessage(content=human),
-            ]
-        )
-    except Exception:
-        return []
+            ], response_format=json_response_format("AssetMentions", _MENTION_SCHEMA)
+    )
+    if getattr(out, "response_metadata", {}).get("finish_reason") == "length":
+        raise ValueError("Asset extraction was truncated; retry extraction")
     data = _extract_json(_text_of(out)) or _extract_json(_reasoning_of(out))
-    if not data:
-        return []
-    mentions = data.get("mentions")
-    return mentions if isinstance(mentions, list) else []
+    if not data or not isinstance(data.get("mentions"), list) or any(not isinstance(m, dict) for m in data["mentions"]):
+        raise ValueError("Asset extraction returned invalid JSON; retry extraction")
+    return data["mentions"]
 
 
 def _mention_to_record(
@@ -180,16 +199,25 @@ def _mention_to_record(
     asset = str(m.get("asset") or "").strip()
     if not asset:
         return None
-    rid = f"{parsed.filename}#p{chunk.page}#c{chunk.index}#{mi}"
+    entity_kind = str(m.get("entity_kind") or "unspecified")
+    if entity_kind in {"equipment_model", "component_type"}:
+        return None
+    if entity_kind not in {"physical_instance", "functional_position", "unspecified"}:
+        raise ValueError("Unknown asset entity kind")
+    if asset.casefold() not in chunk.text.casefold():
+        return None
+    rid = f"{parsed.filename}#{parsed.sha256[:16]}#p{chunk.page}#c{chunk.index}#{mi}"
     detail = str(m.get("detail") or "").strip()
     rec: dict[str, Any] = {
         "record_id": rid,
         "name": asset,
-        "description": detail or asset,
+        "description": chunk.text,
         "_citation": rid,
         "_page": chunk.page,
         "_section": chunk.section or "",
         "_source": "document",
+        "_entity_kind": entity_kind,
+        "_extracted_detail": detail,
     }
     # validated identifiers -> concept-named fields (discovery will anchor them)
     for raw_id in _as_list(m.get("identifiers")):
@@ -204,7 +232,7 @@ def _mention_to_record(
         rec["_ext"] = {
             "is_anomaly": m.get("is_anomaly", kind == "failure") is True,
             "component": str(m.get("component") or "").strip(),
-            "observation": (detail[:60] or asset),
+            "observation": chunk.text[:60],
             "symptoms": _as_list(m.get("symptoms")),
             "sensors": _as_list(m.get("sensors")),
             "status": str(m.get("status") or "").strip(),
@@ -231,6 +259,7 @@ async def extract_document_records(
     `max_chunks` (rate-budget guard). Returns flat record dicts ready for
     `pipeline.ingest_records`.
     """
+    parsed.raw["asset_extraction"] = {"status": "running", "eligible_passages": sum(len(c.text) >= _MIN_CHUNK_CHARS for c in parsed.chunks)}
     records: list[dict[str, Any]] = _records_from_tables(parsed)
 
     chunks = _prioritize(parsed.chunks, max_chunks)
@@ -244,6 +273,7 @@ async def extract_document_records(
                 rec = _mention_to_record(parsed, chunk, mi, m)
                 if rec is not None:
                     records.append(rec)
+    parsed.raw["asset_extraction"].update(status="complete", sampled_passages=len(chunks), records=len(records), version=2)
     return records
 
 

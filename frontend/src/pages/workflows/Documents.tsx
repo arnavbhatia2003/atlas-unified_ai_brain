@@ -82,6 +82,7 @@ export function Documents() {
         if (step === '_end') break
         const msg = ev.message || ''
         if (msg) setStatus(msg)
+        if (step === 'searchable' || step === 'saved') refreshDocs()
         setLog((prev) => [...prev, { step, message: msg, tone: toneFor(step) }])
       }
       // stream ended → job finished
@@ -134,7 +135,7 @@ export function Documents() {
   async function runFolder() {
     if (!folder.trim() || streaming) return
     try {
-      const job = await api.startIngestPath(folder.trim())
+      const job = await api.startIngestPath(folder.trim(), extractAssets)
       if (job.job_id) subscribe(job.job_id)
       else setError(job.error || 'Could not start ingestion')
     } catch (e) {
@@ -150,6 +151,15 @@ export function Documents() {
       } catch {
         /* ignore */
       }
+    }
+  }
+
+  async function reprocess(id: number) {
+    try {
+      const job = await api.reprocessDocument(id, extractAssets)
+      if (job.job_id) subscribe(job.job_id)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not reprocess PDF')
     }
   }
 
@@ -214,7 +224,7 @@ export function Documents() {
 
       <label className="mb-6 flex items-center gap-2 text-sm">
         <input type="checkbox" checked={extractAssets} disabled={streaming} onChange={(e) => setExtractAssets(e.target.checked)} />
-        Also extract assets and build the graph (slower). PDF questions work without this.
+        Extract installed assets and build the graph (slower; up to 24 narrative passages sampled). Manuals and reference PDFs work for questions without asset extraction.
       </label>
       {/* Folder path (local dev) */}
       <Card className="mb-6 gap-4 py-5">
@@ -222,7 +232,7 @@ export function Documents() {
           <h2 className="text-base font-semibold">Ingest a server folder</h2>
           <p className="mt-0.5 text-sm text-muted-foreground">
             Reads PDFs from a path on the machine running the backend. Handy for a
-            whole dataset folder in local development.
+            local dataset inside this project. Limit: five PDFs per batch, 25 MB each, 50 MB total.
           </p>
         </div>
         <div className="flex flex-col gap-3 px-5 sm:flex-row sm:items-end">
@@ -330,13 +340,15 @@ export function Documents() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{d.filename}</p>
                   <p className="truncate text-xs text-muted-foreground">
-                    {d.page_count} page{d.page_count === 1 ? '' : 's'}
+                    {d.page_count} page{d.page_count === 1 ? '' : 's'} · {d.passages} searchable passages
                     {d.doc_type ? ` · ${d.doc_type.replace(/_/g, ' ')}` : ''}
                     {d.error ? ` · ${d.error.slice(0, 80)}` : ''}
                     {d.unreadable_pages?.length ? ` · unreadable pages: ${d.unreadable_pages.join(', ')}` : ''}
                   </p>
+                  <p className="text-xs text-muted-foreground">{d.extraction ? `Asset extraction: ${d.extraction.status}${d.extraction.sampled_passages !== undefined ? ` (${d.extraction.sampled_passages}/${d.extraction.eligible_passages} passages sampled)` : ''}` : 'Asset extraction coverage unknown for this earlier upload.'}</p>
                 </div>
                 <Button variant="outline" size="sm" asChild><Link to={`/ask?document=${d.id}`}>Ask this PDF</Link></Button>
+                <Button variant="outline" size="sm" disabled={streaming} onClick={() => reprocess(d.id)}>Reprocess</Button>
                 <Badge variant={statusTone(d.status)}>{d.status}</Badge>
               </div>
             ))}

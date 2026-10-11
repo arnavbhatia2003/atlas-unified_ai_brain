@@ -41,7 +41,7 @@ from .thresholds import (
 
 
 class _Component:
-    __slots__ = ("members", "values", "confs", "methods")
+    __slots__ = ("members", "values", "confs", "methods", "kinds", "namespaces")
 
     def __init__(self, record: SourceRecord) -> None:
         self.members: set[str] = {record.record_id}
@@ -51,6 +51,8 @@ class _Component:
         }
         self.confs: list[float] = []
         self.methods: set[str] = set()
+        self.kinds = {record.entity_kind} if record.entity_kind != "unspecified" else set()
+        self.namespaces = {record.identity_namespace} if record.identity_namespace else set()
 
 
 def _conflict_penalty(
@@ -131,6 +133,8 @@ def resolve(
         ca.confs.append(conf)
         ca.confs.extend(cb.confs)
         ca.methods |= cb.methods | methods
+        ca.kinds |= cb.kinds
+        ca.namespaces |= cb.namespaces
         parent[root_b] = root_a
 
     # Human overrides first: forced merges join regardless of conflict (the human
@@ -149,6 +153,9 @@ def resolve(
         if root_a == root_b:
             continue
         ca, cb = comp[root_a], comp[root_b]
+        if len(ca.kinds | cb.kinds) > 1 or len(ca.namespaces | cb.namespaces) > 1:
+            review.append(ReviewItem(kind="identity_scope", records=sorted([ra, rb]), reason="Shared evidence spans different entity kinds or identity namespaces; automatic identity merge blocked."))
+            continue
         penalty, conflict_concept = _conflict_penalty(ca.values, cb.values)
         conf = engine.score(ev, penalty).score
 

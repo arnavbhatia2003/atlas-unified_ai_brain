@@ -22,6 +22,8 @@ class SourceRecord(BaseModel):
     system: str
     identifiers: dict[str, list[str]] = Field(default_factory=dict)
     semantic_text: str = ""
+    entity_kind: str = "unspecified"
+    identity_namespace: str = ""
 
 
 class EvidenceKind(str, Enum):

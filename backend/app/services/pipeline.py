@@ -68,6 +68,12 @@ def normalize_records(
             val = rec.get(field)
             if val is not None and str(val).strip():
                 identifiers.setdefault(concept, []).append(str(val).strip())
+        if rec.get("_source") == "document":
+            from .doc_extract import _ident_concept
+            for concept in ("serial_number", "vin", "mac_address", "imei", "udi", "uuid"):
+                value = str(rec.get(concept) or "").strip()
+                if value and _ident_concept(value) == concept and value not in identifiers.get(concept, []):
+                    identifiers.setdefault(concept, []).append(value)
         semantic = " ".join(str(rec[f]) for f in desc_fields if rec.get(f) is not None)
         rid = str(rec.get("record_id", i))
         out.append(
@@ -76,6 +82,8 @@ def normalize_records(
                 system=system,
                 identifiers=identifiers,
                 semantic_text=semantic,
+                entity_kind=str(rec.get("_entity_kind") or "unspecified"),
+                identity_namespace=str(rec.get("_identity_namespace") or ""),
             )
         )
     return out
@@ -146,6 +154,39 @@ def sse(event: dict[str, Any]) -> str:
 _pipeline_lock = asyncio.Lock()
 
 
+async def initialize_source_revisions(pool):
+    async with pool.acquire() as conn:
+        await conn.execute("""create table if not exists source_record_revisions (
+            id bigserial primary key,
+            source_record_id bigint not null references source_records(id) on delete cascade,
+            raw_json jsonb not null,
+            replaced_at timestamptz not null default now()
+        )""")
+
+
+async def store_source_delta(conn, systems):
+    """Atomically keep current payloads and archive replaced versions."""
+    counts = {"new": 0, "updated": 0, "skipped": 0}
+    async with conn.transaction():
+        for system, recs in systems.items():
+            for i, rec in enumerate(recs or []):
+                rid = str(rec.get("record_id") or f"r{i}")
+                full = f"{system}:{rid}"
+                raw = json.dumps({**rec, "record_id": rid})
+                old = await conn.fetchrow("select id, raw_json <> $3::jsonb as changed from source_records where system=$1 and record_id=$2 for update", system, full, raw)
+                if old is None:
+                    await conn.execute("insert into source_records(system,record_id,raw_json) values($1,$2,$3::jsonb)", system, full, raw)
+                    counts["new"] += 1
+                elif old["changed"]:
+                    await conn.execute("insert into source_record_revisions(source_record_id,raw_json) select id,raw_json from source_records where id=$1", old["id"])
+                    await conn.execute("update source_records set raw_json=$2::jsonb,semantic_text=null,embedding=null,ingest_ts=now() where id=$1", old["id"], raw)
+                    await conn.execute("delete from operational_extractions where record_id=$1", full)
+                    counts["updated"] += 1
+                else:
+                    counts["skipped"] += 1
+    return counts
+
+
 async def ingest_records(systems: dict[str, list[dict[str, Any]]]) -> AsyncIterator[dict[str, Any]]:
     async with _pipeline_lock:
         async for event in _ingest_records(systems):
@@ -161,29 +202,14 @@ async def _ingest_records(
     settings = get_settings()
 
     async with pool.acquire() as conn:
-        # 1. Durably store NEW raw records only (dedupe by system + record_id).
-        new_count = skip_count = 0
-        for system, recs in systems.items():
-            for i, rec in enumerate(recs or []):
-                if not isinstance(rec, dict):
-                    continue
-                rid = str(rec.get("record_id") or f"r{i}")
-                full = f"{system}:{rid}"
-                inserted = await conn.fetchval(
-                    "insert into source_records (system, record_id, raw_json) "
-                    "values ($1,$2,$3::jsonb) on conflict (system, record_id) "
-                    "do nothing returning id",
-                    system, full, json.dumps({**rec, "record_id": rid}),
-                )
-                if inserted is None:
-                    skip_count += 1
-                else:
-                    new_count += 1
+        counts = await store_source_delta(conn, systems)
+        new_count, skip_count = counts["new"], counts["skipped"]
         yield {
             "step": "delta",
-            "message": f"{new_count} new record(s); {skip_count} already present",
+            "message": f"{new_count} new; {counts['updated']} updated; {skip_count} unchanged record(s)",
             "new": new_count,
             "skipped": skip_count,
+            "updated": counts["updated"],
         }
 
         # 2. Load the FULL accumulated corpus.
@@ -300,6 +326,10 @@ async def _ingest_records(
             forced_merge=forced_merge,
             forced_separate=forced_separate,
         )
+        previous = await conn.fetch("select a.unified_id,array_agg(s.record_id order by s.record_id) as members from asset_source_records a join source_records s on s.id=a.source_record_id group by a.unified_id")
+        previous_ids = {tuple(r["members"]): r["unified_id"] for r in previous}
+        for cluster in result.clusters:
+            cluster.cluster_id = previous_ids.get(tuple(sorted(cluster.members)), cluster.cluster_id)
         yield {
             "step": "resolve",
             "message": f"Resolved into {len(result.clusters)} unified asset(s); "
@@ -395,6 +425,7 @@ async def _ingest_records(
             "warnings": warnings,
             "summary": {
                 "new": new_count,
+                "updated": counts["updated"],
                 "skipped": skip_count,
                 "unified_assets": len(result.clusters),
                 "edges": len(edges),

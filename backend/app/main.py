@@ -27,7 +27,7 @@ from fastapi.responses import JSONResponse
 
 from .api.routes import router as api_router
 from .config import get_settings
-from .db import check_database, close_pool, init_pool
+from .db import check_database, close_pool, get_pool, init_pool
 
 
 async def _warm_embeddings() -> None:
@@ -78,6 +78,10 @@ async def lifespan(app: FastAPI):
         )
         raise
     # Warm the embedding endpoint in the background (does not block readiness).
+    from .services.document_index import initialize_document_index
+    await initialize_document_index(get_pool())
+    from .services.pipeline import initialize_source_revisions
+    await initialize_source_revisions(get_pool())
     warmup_task = asyncio.create_task(_warm_embeddings())
     docling_task = asyncio.create_task(_warm_docling())
     try:

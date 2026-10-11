@@ -1,8 +1,10 @@
 import { useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   Check,
   Database,
   FileJson,
+  FileText,
   Globe,
   Loader2,
   Plus,
@@ -69,7 +71,7 @@ export function Connectors() {
       <PageHeader
         eyebrow="Incremental · accumulative"
         title="Connectors"
-        description="Connect a source once. Each sync pulls only new records and merges them into the shared knowledge graph — existing sources are never overwritten."
+        description="JSON/API sync adds and updates asset records, retaining replaced payloads. PDFs supply searchable passages; optional asset extraction is tracked separately."
         action={
           <Button onClick={() => setAddOpen(true)}>
             <Plus />
@@ -154,7 +156,8 @@ function ConnectorCard({
   onSync: () => void
   onDelete: () => void
 }) {
-  const Icon = c.kind === 'api' ? Globe : FileJson
+  const isPdf = c.kind === 'document'
+  const Icon = isPdf ? FileText : c.kind === 'api' ? Globe : FileJson
   return (
     <Card className="gap-0 py-5">
       <div className="flex flex-col gap-4 px-6 sm:flex-row sm:items-start sm:justify-between">
@@ -166,32 +169,39 @@ function ConnectorCard({
             <div className="flex items-center gap-2">
               <h2 className="text-base font-semibold">{c.name}</h2>
               <Badge variant={c.kind === 'api' ? 'linked' : 'neutral'}>
-                {c.kind === 'api' ? 'API' : 'JSON'}
+                {isPdf ? 'PDF' : c.kind === 'api' ? 'API' : 'JSON'}
               </Badge>
             </div>
             {c.description && (
               <p className="mt-0.5 text-sm text-muted-foreground">{c.description}</p>
             )}
             <p className="mt-1 truncate font-mono text-xs text-muted-foreground">
-              {c.endpoint ?? 'inline JSON payload'}
+              {isPdf ? `${c.documents.length} stored PDF version(s)` : c.endpoint ?? 'inline JSON payload'}
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
               <span className="flex items-center gap-1.5">
-                <StatusDot tone={c.records > 0 ? 'verified' : 'primary'} />
-                {c.records} record{c.records === 1 ? '' : 's'}
+                <StatusDot tone={(isPdf ? c.documents.some(d => d.passages > 0) : c.records > 0) ? 'verified' : 'primary'} />
+                {isPdf ? `${c.documents.reduce((n,d) => n+d.passages,0)} searchable passages · ${c.records} asset mentions` : `${c.records} records`}
               </span>
-              <span>
+              {!isPdf && <span>
                 {c.last_synced_at
                   ? `Last synced ${new Date(c.last_synced_at).toLocaleString()}`
                   : 'Never synced'}
-              </span>
+              </span>}
               {c.last_result && (c.last_result.new ?? 0) > 0 && (
                 <span>+{c.last_result.new} new last sync</span>
               )}
+              {!!c.last_result?.updated && <span>{c.last_result.updated} updated last sync</span>}
             </div>
+            {isPdf && c.documents.map(d => <div key={d.id} className="mt-2 text-xs text-muted-foreground">
+              <Link className="underline" to={`/ask?document=${d.id}`}>{d.filename}</Link> · {d.page_count} pages · {d.status}
+              <p>{d.extraction?.status === 'not_requested' ? 'Asset extraction not requested — PDF questions are available.' : d.extraction ? `Asset extraction: ${d.extraction.status}${d.extraction.sampled_passages !== undefined ? ` · ${d.extraction.sampled_passages}/${d.extraction.eligible_passages} eligible passages sampled` : ''}` : 'Asset extraction coverage unknown for this earlier upload.'}</p>
+              {d.error && <p className="text-critical">{d.error}</p>}
+            </div>)}
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          {isPdf ? <Button variant="outline" size="sm" asChild><Link to="/workflows/documents">Manage PDFs</Link></Button> : <>
           <Button variant="outline" size="sm" onClick={onSync} disabled={syncing || disabled}>
             {syncing ? <Loader2 className="animate-spin" /> : <RefreshCw />}
             {syncing ? 'Syncing…' : 'Sync'}
@@ -205,6 +215,7 @@ function ConnectorCard({
           >
             {deleting ? <Loader2 className="animate-spin" /> : <Trash2 />}
           </Button>
+          </>}
         </div>
       </div>
 

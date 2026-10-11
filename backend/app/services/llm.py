@@ -6,13 +6,8 @@ throttles opportunistically ("traffic from other users may cause throttling"),
 so ``resilient()`` wraps calls with bounded exponential-backoff retries to absorb
 transient 429s instead of failing the request.
 
-Two tiers (see config / Tech Stack decision log):
-  - ``get_chat_model()``      -> nemotron-3-ultra-550b-a55b (deep reasoning; MoE,
-                                 ~1.9s TTFT). Used for RCA/compliance/ask answers.
-  - ``get_fast_chat_model()`` -> nano-9b-v2 (cheap, high-frequency: intent routing).
-
-All chat is streamed via SSE at the API layer, so perceived latency is
-time-to-first-token, not full completion.
+Model names come from Settings. Structured answers are validated before their
+text is emitted; SSE also carries retrieval and processing progress.
 """
 
 from __future__ import annotations
@@ -30,13 +25,12 @@ def _build(model: str, temperature: float, max_tokens: int = 1024) -> ChatNVIDIA
     return ChatNVIDIA(
         model=model,
         temperature=temperature,
-        # Nemotron nano is a reasoning model — hidden reasoning consumes tokens
-        # before the visible answer, so give enough headroom that the final JSON
-        # answer isn't truncated.
         max_completion_tokens=max_tokens,
         # Share the single NVIDIA token bucket with embeddings so chat + embed
         # together never exceed the free-tier request budget.
         rate_limiter=get_rate_limiter(),
+        # Nemotron 3 uses a request parameter; the older textual prefix does not disable reasoning.
+        model_kwargs={"chat_template_kwargs": {"enable_thinking": False}} if "nemotron-3-" in model else {},
     )
 
 
@@ -49,20 +43,21 @@ def get_chat_model() -> ChatNVIDIA:
 
 @lru_cache
 def get_fast_chat_model() -> ChatNVIDIA:
-    """Reasoning-capable small model for RCA/compliance JSON + intent routing.
-    nano-9b is a reasoning model; bound the token budget so a bounded amount of
-    hidden reasoning still leaves room for the JSON answer without runaway latency."""
+    """Configured low-temperature model for grounded JSON and intent routing."""
     settings = get_settings()
     return _build(settings.chat_fast_model, 0.0, max_tokens=2048)
 
 
 @lru_cache
 def get_extract_model() -> ChatNVIDIA:
-    """Fast, NON-reasoning path for high-volume structured extraction. Callers
-    prepend a 'detailed thinking off' directive; a small token budget keeps
-    per-record latency low (reasoning traces are what make nano slow)."""
+    """Bounded non-reasoning path for structured extraction."""
     settings = get_settings()
     return _build(settings.chat_fast_model, 0.0, max_tokens=640)
+
+
+def json_response_format(name: str, schema: dict) -> dict:
+    """Enforce JSON at the hosted endpoint, rather than only in prompt text."""
+    return {"type": "json_schema", "json_schema": {"name": name, "schema": schema, "strict": True}}
 
 
 def get_reranker(top_n: int = 8) -> NVIDIARerank:

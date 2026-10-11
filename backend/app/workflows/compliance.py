@@ -30,7 +30,7 @@ from pydantic import BaseModel, Field
 from app.db import get_pool
 from app.engine.graph.model import RelationType, asset_node, rule_node
 from app.engine.graph.store import GraphStore
-from app.services.llm import get_fast_chat_model, resilient
+from app.services.llm import get_fast_chat_model, json_response_format, resilient
 
 from .base import emit, sse
 from .resolve_mention import resolve_mention
@@ -94,8 +94,7 @@ def _extract_json(text: str) -> dict[str, Any] | None:
 
 
 async def _default_reason(question: str, evidence: dict[str, Any]) -> dict[str, Any]:
-    # Manual JSON (ChatNVIDIA structured output is unreliable). The at-risk list is
-    # authoritative/deterministic; the model only writes the narrative posture.
+    # The deterministic at-risk list remains authoritative over model narrative.
     model = resilient(get_fast_chat_model())
     q = question.strip() or (
         "No specific question was asked. Summarize the compliance posture strictly "
@@ -109,7 +108,8 @@ async def _default_reason(question: str, evidence: dict[str, Any]) -> dict[str, 
     data: dict[str, Any] | None = None
     for _ in range(2):
         raw = await model.ainvoke(
-            [SystemMessage(content=_SYSTEM), HumanMessage(content=human)]
+            [SystemMessage(content=_SYSTEM), HumanMessage(content=human)],
+            response_format=json_response_format("ComplianceNarrative", ComplianceNarrative.model_json_schema()),
         )
         data = _extract_json(_text_of(raw)) or _extract_json(_reasoning_of(raw))
         if data:

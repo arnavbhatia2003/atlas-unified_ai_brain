@@ -40,7 +40,7 @@ from app.engine.graph.model import (
     sensor_node,
     work_order_node,
 )
-from app.services.llm import get_extract_model, resilient
+from app.services.llm import get_extract_model, json_response_format, resilient
 
 from .resolve_mention import resolve_mention
 
@@ -195,8 +195,7 @@ def _sensors_from_raw(raw: dict[str, Any]) -> list[str]:
 
 
 async def _extract_one(text: str, raw: dict[str, Any]) -> dict[str, Any]:
-    # Non-reasoning fast path (≈8x faster than nano's reasoning mode) + manual
-    # JSON parse (ChatNVIDIA structured-output returns None too often here).
+    # Constrain output at the endpoint; retain raw metadata for validation.
     model = resilient(get_extract_model())
     human = (
         f"Record fields:\n{json.dumps(raw, indent=2, default=str)}\n\n"
@@ -204,9 +203,15 @@ async def _extract_one(text: str, raw: dict[str, Any]) -> dict[str, Any]:
     )
     out = await model.ainvoke(
         [SystemMessage(content="detailed thinking off\n" + _SYSTEM),
-         HumanMessage(content=human)]
+         HumanMessage(content=human)],
+        response_format=json_response_format("OperationalExtraction", OpsExtraction.model_json_schema()),
     )
-    return _extract_json(_text_of(out)) or _extract_json(_reasoning_of(out)) or {}
+    if getattr(out, "response_metadata", {}).get("finish_reason") == "length":
+        raise ValueError("Operational extraction was truncated")
+    data = _extract_json(_text_of(out))
+    if not data:
+        raise ValueError("Operational extraction returned invalid JSON")
+    return OpsExtraction.model_validate(data).model_dump()
 
 
 async def _load_or_extract(
@@ -244,8 +249,10 @@ async def _load_or_extract(
 
     try:
         data = await _extract_one(text, raw)
-    except Exception:
+        extraction_error = None
+    except Exception as exc:
         data = {}
+        extraction_error = type(exc).__name__
     sig = _anomaly_signal(f"{data.get('observation', '')} {text}")
     payload = {
         "is_anomaly": sig if sig is not None else data.get("is_anomaly") is True,
@@ -256,13 +263,16 @@ async def _load_or_extract(
         else _sensors_from_raw(raw),
         "status": str(data.get("status") or raw.get("status") or ""),
         "rule_id": str(data.get("rule_id") or raw.get("rule_id") or ""),
-        "confidence": data.get("confidence", 0.7),
+        "confidence": data.get("confidence", 0.0),
+        "extraction_mode": "model" if data else "deterministic_fallback",
+        "extraction_error": extraction_error,
     }
-    await conn.execute(
-        "insert into operational_extractions (record_id, payload) values ($1, $2::jsonb) "
-        "on conflict (record_id) do update set payload = excluded.payload",
-        record_id, json.dumps(payload),
-    )
+    if data:
+        await conn.execute(
+            "insert into operational_extractions (record_id, payload) values ($1, $2::jsonb) "
+            "on conflict (record_id) do update set payload = excluded.payload",
+            record_id, json.dumps(payload),
+        )
     return payload
 
 
@@ -328,6 +338,8 @@ async def rebuild_operational_edges(
             # only the (thin) extraction.
             "detail": rec.semantic_text,
             "confidence": ext.get("confidence", 0.7),
+            "extraction_mode": ext.get("extraction_mode", "cached"),
+            "extraction_error": ext.get("extraction_error"),
             **dates,
         }
 

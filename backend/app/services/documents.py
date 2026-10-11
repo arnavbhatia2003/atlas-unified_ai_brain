@@ -209,7 +209,6 @@ def _extract_chunks_and_outline(doc: Any) -> tuple[list[DocChunk], list[str]]:
             label = str(getattr(item, "label", "") or "").lower()
             text = str(getattr(item, "text", "") or "").strip()
             if not text:
-                empty_pages.append(pno + 1)
                 continue
             is_heading = "header" in label or label in ("title", "section_header")
             if is_heading:
@@ -302,6 +301,7 @@ def _parse_pdf_textonly(data: bytes, filename: str, *, allow_empty: bool = False
             finally:
                 page.close()
             if not text:
+                empty_pages.append(pno + 1)
                 continue
             md_parts.append(text)
             start = 0

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 from typing import Any
+from typing import Literal
 
 from fastapi import APIRouter, File, Query, UploadFile, HTTPException
 from fastapi.responses import StreamingResponse, Response
@@ -56,10 +57,16 @@ class IngestRequest(BaseModel):
     systems: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)
 
 
+class ChatTurn(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(max_length=2000)
+
+
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=8000)
     document_id: int | None = Field(default=None, gt=0)
     intent: str | None = None  # optional override (ask|rca|compliance|asset_lookup)
+    history: list[ChatTurn] = Field(default_factory=list, max_length=6)
 
 
 class RCARequest(BaseModel):
@@ -80,7 +87,7 @@ class ReviewAction(BaseModel):
 class ConnectorCreate(BaseModel):
     name: str
     description: str = ""
-    kind: str = "manual"  # manual | api
+    kind: Literal["manual", "api"] = "manual"
     endpoint: str | None = None
     payload: Any = None
 
@@ -113,6 +120,7 @@ async def ingest(req: IngestRequest) -> StreamingResponse:
 
 class IngestPathRequest(BaseModel):
     path: str  # a server-side PDF file OR a folder of PDFs (local dev only)
+    extract_assets: bool = False
 
 
 @router.post("/documents/ingest")
@@ -178,8 +186,8 @@ def _read_path_items(path: str) -> tuple[list[tuple[str, str, bytes]], str | Non
                 if len(data) > 25 * 1024 * 1024 or total > 50 * 1024 * 1024 or b"%PDF-" not in data[:1024]:
                     return [], "Invalid PDF or upload size limit exceeded"
                 items.append((_clean_system_name(name), name, data))
-        except Exception:  # noqa: BLE001 - skip unreadable files
-            continue
+        except OSError:
+            return [], f"Cannot read PDF: {name}"
     return items, None
 
 
@@ -201,7 +209,7 @@ async def documents_ingest_path(req: IngestPathRequest) -> dict[str, Any]:
 
     label = os.path.basename(req.path.rstrip("/\\")) or req.path
     job = job_registry.start(
-        "path", f"{label} ({len(items)} PDF)", lambda: ingest_documents_events(items)
+        "path", f"{label} ({len(items)} PDF)", lambda: ingest_documents_events(items, extract_assets=req.extract_assets)
     )
     return {"job_id": job.id, "status": job.status, "label": job.label, "count": len(items)}
 
@@ -244,7 +252,9 @@ async def list_documents() -> list[dict[str, Any]]:
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             "select id, system, filename, doc_type, parser, page_count, title, "
-            "status, error, parsed_at, processed_at, parsed->'raw'->'unreadable_pages' as unreadable_pages from document_parses "
+            "status, error, parsed_at, processed_at, parsed->'raw'->'unreadable_pages' as unreadable_pages, "
+            "jsonb_array_length(coalesce(parsed->'chunks','[]'::jsonb)) as passages, "
+            "parsed->'raw'->'asset_extraction' as extraction from document_parses "
             "order by parsed_at desc, id desc"
         )
     out: list[dict[str, Any]] = []
@@ -259,6 +269,8 @@ async def list_documents() -> list[dict[str, Any]]:
                 "page_count": r["page_count"],
                 "title": r["title"],
                 "status": r["status"],
+                "passages": r["passages"],
+                "extraction": json.loads(r["extraction"]) if isinstance(r["extraction"], str) else r["extraction"],
                 "unreadable_pages": json.loads(r["unreadable_pages"]) if isinstance(r["unreadable_pages"], str) else r["unreadable_pages"] or [],
                 "error": r["error"],
                 "parsed_at": r["parsed_at"].isoformat() if r["parsed_at"] else None,
@@ -277,6 +289,24 @@ async def document_file(document_id: int) -> Response:
     if not raw:
         raise HTTPException(404, "Original PDF unavailable; re-upload the document")
     return Response(base64.b64decode(raw, validate=True), media_type="application/pdf", headers={"Content-Disposition": "inline"})
+
+
+class ReprocessRequest(BaseModel):
+    extract_assets: bool = False
+
+
+@router.post("/documents/{document_id}/reprocess")
+async def reprocess_document(document_id: int, req: ReprocessRequest) -> dict[str, Any]:
+    import base64
+    if job_registry.running() is not None:
+        raise HTTPException(409, "An ingestion job is already running")
+    async with get_pool().acquire() as conn:
+        row = await conn.fetchrow("select system,filename,parsed->'raw'->>'original_pdf_b64' as original from document_parses where id=$1", document_id)
+    if row is None or not row["original"]:
+        raise HTTPException(404, "Original PDF unavailable; re-upload to reprocess")
+    items = [(row["system"], row["filename"], base64.b64decode(row["original"], validate=True))]
+    job = job_registry.start("reprocess", row["filename"], lambda: ingest_documents_events(items, extract_assets=req.extract_assets, force=True))
+    return {"job_id": job.id, "status": job.status, "label": job.label}
 
 
 @router.get("/assets")
@@ -666,7 +696,7 @@ async def history_run(run_id: int) -> dict[str, Any]:
 async def chat(req: ChatRequest) -> StreamingResponse:
     """Chatbot: routes to ask/rca/compliance/lookup, streaming status + tokens."""
     return StreamingResponse(
-        run_chat_events(req.message, req.intent, req.document_id),
+        run_chat_events(req.message, req.intent, req.document_id, [t.model_dump() for t in req.history]),
         media_type="text/event-stream",
         headers=_SSE_HEADERS,
     )
@@ -707,6 +737,12 @@ async def add_connector(req: ConnectorCreate) -> dict[str, Any]:
 
 @router.post("/connectors/{connector_id}/sync")
 async def sync_connector(connector_id: int, req: SyncRequest) -> StreamingResponse:
+    async with get_pool().acquire() as conn:
+        kind = await conn.fetchval("select kind from connectors where id=$1", connector_id)
+    if kind is None:
+        raise HTTPException(404, "Connector not found")
+    if kind == "document":
+        raise HTTPException(409, "PDF sources are reprocessed from Documents, not synced as JSON")
     """Fetch the source's new records and re-resolve the corpus (streamed SSE)."""
     return StreamingResponse(
         _sse(connectors.sync_connector(connector_id, req.payload)),
@@ -718,6 +754,9 @@ async def sync_connector(connector_id: int, req: SyncRequest) -> StreamingRespon
 @router.delete("/connectors/{connector_id}")
 async def remove_connector(connector_id: int) -> dict[str, Any]:
     """Delete a connector, drop its records, and re-resolve what remains."""
-    async for _ in connectors.delete_connector(connector_id):
-        pass
+    try:
+        async for _ in connectors.delete_connector(connector_id):
+            pass
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from None
     return {"ok": True}
