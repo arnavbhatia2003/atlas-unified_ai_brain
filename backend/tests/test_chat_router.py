@@ -39,6 +39,37 @@ def test_asset_hint_extraction():
     assert extract_asset_hint("show the feed pump") is None
 
 
+@pytest.mark.parametrize("message, document_id", [("hi", 22), ("okay", 22), (" Hello!! ", None), ("thank you", None)])
+def test_conversation_does_not_search_documents_or_call_model(message, document_id):
+    state = asyncio.run(build_chat_graph().ainvoke({"conn": object(), "message": message, "document_id": document_id, "stages": []}))
+    assert state["stages"] == ["route", "guard"]
+    assert state["result"]["intent"] == "conversation"
+    assert state["result"]["answer_mode"] == "conversation"
+    assert "couldn't find" not in state["result"]["answer"]
+
+
+@pytest.mark.parametrize("mode", ["llm", "source_excerpts", "no_sources"])
+def test_pdf_chat_distinguishes_model_answer_and_fallback(monkeypatch, mode):
+    from app.workflows import chat
+    from app.workflows.retrieval import RetrievedRecord
+    calls = []
+    class Connection:
+        async def fetch(self, *args): return []
+    async def search(conn, message, document_id):
+        assert document_id == 22
+        return [] if mode == "no_sources" else [RetrievedRecord(citation="PDF:22:p3:c6", system="test.pdf", text="Inspection interval: 3 days.")]
+    async def answer(system, human, citations):
+        calls.append(citations)
+        return "3 days [PDF:22:p3:c6]" if mode == "llm" else ""
+    monkeypatch.setattr(chat, "document_search", search)
+    monkeypatch.setattr(chat, "_stream_grounded_answer", answer)
+    state = asyncio.run(build_chat_graph().ainvoke({"conn": Connection(), "message": "What is the inspection interval?", "document_id": 22, "stages": []}))
+    assert state["result"]["answer_mode"] == mode
+    assert len(calls) == (0 if mode == "no_sources" else 1)
+    if mode == "llm": assert "3 days" in state["result"]["answer"]
+    if mode == "source_excerpts": assert "not a generated answer" in state["result"]["answer"]
+
+
 def test_chat_asset_lookup_path_is_grounded_without_llm():
     async def scenario():
         conn = await asyncpg.connect(dsn=DSN, timeout=5)

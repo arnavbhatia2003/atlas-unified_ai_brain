@@ -328,6 +328,11 @@ function AssistantMessage({
               </p>
             )}
             {turn.answer && <AnswerBody text={turn.answer} />}
+            {!turn.streaming && result?.answer_mode && (
+              <p className="text-xs text-muted-foreground">
+                {{llm: 'Model answer · retrieved sources', source_excerpts: 'Source excerpts · generated answer unavailable', no_sources: 'No matching passages · model not called', conversation: 'Conversation reply', guard: 'Guarded response'}[result.answer_mode]}
+              </p>
+            )}
             {!turn.streaming && result && !turn.answer && <RoutedResult result={result} />}
           </>
         )}

@@ -11,6 +11,8 @@ Atlas is a single-user prototype for reconciling operational asset records and a
 5. Ask a question whose answer is absent, and a question about conflicting values. Expect an explicit lack of evidence or both values, not a guessed reconciliation.
 6. Enable asset extraction only for PDFs that actually describe assets and operational records. Inspect the review queue before treating proposed identities as confirmed.
 
+Greetings and acknowledgments use a conversation reply rather than document search. Factual PDF responses show whether they are a model answer, source excerpts after an unavailable/unverified generation, or a no-matching-passages reply for which the model was not called. A no-source reply alone does not diagnose model connectivity.
+
 ## Why Docling is used selectively
 
 Native PDFium extraction preserves selectable text quickly. Pages containing raster images are sent to a warmed, isolated Docling worker with RapidOCR/ONNX Runtime and layout/table parsing. Digital pages retain their original page numbers; OCR pages are mapped back to their original positions. The API saves the original PDF and native parse before OCR or asset enrichment. A worker failure returns a processing error and permits retry without losing that saved PDF.

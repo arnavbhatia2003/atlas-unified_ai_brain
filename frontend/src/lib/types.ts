@@ -143,7 +143,8 @@ export interface OverviewAsset {
 }
 
 export interface ChatResult {
-  intent: 'ask' | 'asset_lookup' | 'rca' | 'compliance' | 'overview'
+  intent: 'ask' | 'asset_lookup' | 'rca' | 'compliance' | 'overview' | 'conversation' | 'clarify' | 'off_topic' | 'injection'
+  answer_mode?: 'llm' | 'source_excerpts' | 'no_sources' | 'conversation' | 'guard'
   answer?: string
   citations?: Citation[] | string[]
   confidence?: number

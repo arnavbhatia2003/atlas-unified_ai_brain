@@ -80,6 +80,8 @@ _ID_TOKEN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]*\d[A-Za-z0-9._:-]*")
 
 
 _NODES = ("ask", "asset_lookup", "overview", "rca", "compliance", "guard")
+_GREETINGS = {"hi", "hello", "hey", "good morning", "good afternoon", "good evening"}
+_ACKNOWLEDGMENTS = {"ok", "okay", "thanks", "thank you", "got it"}
 
 
 class _Intent(BaseModel):
@@ -402,6 +404,11 @@ def build_chat_graph() -> Any:
         # scope + intent, catching off-topic / injection / too-vague up front.
         if _INJECTION_PAT.search(msg):
             return {"stages": ["route"], "intent": "guard", "guard": {"scope": "injection"}}
+        conversational = re.sub(r"[.!?,]+$", "", msg.strip()).casefold()
+        if conversational in _GREETINGS | _ACKNOWLEDGMENTS:
+            target = "the selected PDF" if state.get("document_id") else "your documents or assets"
+            reply = f"Hi! What would you like to know about {target}?" if conversational in _GREETINGS else f"Ready when you are. Ask another question about {target}."
+            return {"stages": ["route"], "intent": "guard", "guard": {"scope": "conversation", "clarify": reply}}
         if state.get("document_id"):
             return {"stages": ["route"], "intent": "ask", "asset_hint": None}
         if state.get("intent"):
@@ -431,7 +438,7 @@ def build_chat_graph() -> Any:
         scope = guard.get("scope", "off_topic")
         if scope == "injection":
             answer = _INJECTION_MSG
-        elif scope == "unclear":
+        elif scope in ("unclear", "conversation"):
             answer = guard.get("clarify") or (
                 "I can help with your assets, incidents, maintenance, and compliance "
                 "— which asset or which of those did you mean?"
@@ -449,6 +456,7 @@ def build_chat_graph() -> Any:
             "contradictions": [],
             "needs_clarification": scope == "unclear",
             "evidence_from": "guard",
+            "answer_mode": "conversation" if scope == "conversation" else "guard",
         }
         emit("complete", "Response complete", result=result)
         return {"stages": ["guard"], "result": result}
@@ -506,8 +514,8 @@ def build_chat_graph() -> Any:
     async def ask(state: ChatState) -> dict[str, Any]:
         conn = state["conn"]
         message = state.get("message", "")
-        emit("retrieve", "Hybrid search (vector + keyword + OKF bundles) with reranking")
         document_id = state.get("document_id")
+        emit("retrieve", "Searching passages in the selected PDF" if document_id else "Hybrid search (vector + keyword + OKF bundles) with reranking")
         records = await document_search(conn, message, document_id)
         if not document_id:
             records += await hybrid_search(conn, message, k=6)
@@ -523,7 +531,7 @@ def build_chat_graph() -> Any:
         if not records and not facts_d:
             result = {
                 "intent": "ask",
-                "answer": (
+                "answer": "No passages matched this question in the selected PDF. Try using its terminology or a specific identifier." if document_id else (
                     "I couldn't find anything in the indexed sources to answer that. "
                     "Try naming a specific asset or identifier."
                 ),
@@ -531,6 +539,7 @@ def build_chat_graph() -> Any:
                 "confidence": 0.0,
                 "contradictions": [],
                 "evidence_from": "index",
+                "answer_mode": "no_sources",
             }
             emit("complete", "Answer complete", result=result)
             return {"stages": ["ask"], "result": result}
@@ -544,6 +553,7 @@ def build_chat_graph() -> Any:
             "OCR may contain errors. Do not infer diagram meaning from text labels alone. " + _NO_INJECTION
         )
         answer = await _stream_grounded_answer(system, human, {r.citation for r in records} if document_id else None)
+        answer_mode = "llm" if answer else "source_excerpts"
         if not answer:
             answer = "A cited answer could not be verified or the answer service is unavailable. Retrieved passages are shown below; these are source excerpts, not a generated answer.\n\n" + "\n\n".join(f"[{r.citation}] {r.text}" for r in records)
             emit("token", "", text=answer)
@@ -560,6 +570,7 @@ def build_chat_graph() -> Any:
             "confidence": confidence,
             "contradictions": await _contradictions(conn, cited_records),
             "evidence_from": "index",
+            "answer_mode": answer_mode,
         }
         emit("complete", "Answer complete", result=result)
         return {"stages": ["ask"], "result": result}
