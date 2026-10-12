@@ -184,6 +184,7 @@ export interface Hypothesis {
 }
 
 export interface RcaReport {
+  generation_mode?: 'llm' | 'manual_evidence' | 'no_evidence'
   summary: string
   hypotheses: Hypothesis[]
   contradictions: string[]
@@ -215,6 +216,7 @@ export interface AtRiskAsset {
 }
 
 export interface ComplianceNarrative {
+  generation_mode?: 'llm' | 'manual_evidence' | 'no_evidence'
   summary: string
   posture: 'compliant' | 'at_risk' | 'unknown'
   contradictions: string[]
@@ -222,6 +224,7 @@ export interface ComplianceNarrative {
 }
 
 export interface ComplianceResult {
+  assessed_rule_links?: number
   scope: 'rule' | 'asset' | 'none'
   rule_id: string | null
   asset: string | null

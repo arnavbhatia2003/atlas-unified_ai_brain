@@ -1,0 +1,655 @@
+{
+  "scope": "Small labeled synthetic asset scenario with live hosted models and real database; not an industrial accuracy benchmark",
+  "checks": [
+    {
+      "name": "ingestion enrichment complete",
+      "passed": true,
+      "seconds": 14.649,
+      "events": [
+        {
+          "step": "start",
+          "message": "Ingesting into 2 source(s)"
+        },
+        {
+          "step": "delta",
+          "message": "7 new; 0 updated; 0 unchanged record(s)",
+          "new": 7,
+          "skipped": 0,
+          "updated": 0
+        },
+        {
+          "step": "normalize",
+          "message": "Normalized 7 record(s) across 2 source(s)"
+        },
+        {
+          "step": "embedding",
+          "message": "Embedded 7 new record(s); reused 0"
+        },
+        {
+          "step": "resolve",
+          "message": "Resolved into 2 unified asset(s); 0 item(s) need review",
+          "clusters": 2,
+          "review": 0
+        },
+        {
+          "step": "project",
+          "message": "Projected 9 physical edge(s)"
+        },
+        {
+          "step": "persist",
+          "message": "Rebuilt unified assets, identifiers and graph"
+        },
+        {
+          "step": "operational",
+          "message": "Operational graph: 1 failure(s), 2 work order(s), 1 rule(s), 2 sensor link(s) extracted from content",
+          "failures": 1,
+          "work_orders": 2,
+          "rules": 1,
+          "sensors": 2,
+          "skipped": 0,
+          "benign": 1,
+          "dependencies": 0,
+          "fallbacks": 0
+        },
+        {
+          "step": "bundle",
+          "message": "Materialized OKF knowledge bundles (2 (re)embedded)"
+        },
+        {
+          "step": "complete",
+          "message": "Ingestion complete",
+          "warnings": [],
+          "summary": {
+            "new": 7,
+            "updated": 0,
+            "skipped": 0,
+            "unified_assets": 2,
+            "edges": 9,
+            "review_items": 0,
+            "clusters": [
+              {
+                "unified_id": "ua-014f303b2818438a",
+                "members": [
+                  "evaluation operations:incident",
+                  "evaluation operations:old_completion",
+                  "evaluation operations:rule",
+                  "evaluation operations:unrelated_completion",
+                  "evaluation registry:pump1"
+                ],
+                "decision": "auto_merged",
+                "confidence": 1.0,
+                "identifiers": {
+                  "serial_number": [
+                    "sn-900001"
+                  ]
+                }
+              },
+              {
+                "unified_id": "ua-20836e520c45f21c",
+                "members": [
+                  "evaluation operations:normal",
+                  "evaluation registry:pump2"
+                ],
+                "decision": "auto_merged",
+                "confidence": 1.0,
+                "identifiers": {
+                  "serial_number": [
+                    "sn-900002"
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "exact serial aliases resolve; different units stay separate",
+      "passed": true,
+      "asset": "ua-014f303b2818438a",
+      "other_asset": "ua-20836e520c45f21c"
+    },
+    {
+      "name": "five records for the installed pump share one canonical asset",
+      "passed": true,
+      "members": 5
+    },
+    {
+      "name": "graph links observations, obligations and work orders with provenance",
+      "passed": true,
+      "edges": [
+        {
+          "relation_type": "HAS_FAILURE",
+          "metadata": "{\"detail\": \"Pump P-101 Pump P-101 serial SN-900001 has a vibration alarm at 7 mm/s while running. No cause has been diagnosed. SN-900001\", \"period\": null, \"citation\": \"evaluation operations:incident\", \"symptoms\": [\"vibration alarm at 7 mm/s\"], \"component\": \"Pump P-101\", \"confidence\": 0.7, \"observation\": \"Vibration alarm at 7 mm/s while running\", \"extraction_mode\": \"model\", \"extraction_error\": null}"
+        },
+        {
+          "relation_type": "SUBJECT_TO",
+          "metadata": "{\"detail\": \"Pump P-101 Annual vibration inspection required for Pump P-101 serial SN-900001 under rule R-EVAL, period 2026. SN-900001 2026 R-EVAL\", \"period\": \"2026\", \"citation\": \"evaluation operations:rule\", \"symptoms\": [], \"component\": \"Pump P-101\", \"confidence\": 0.7, \"observation\": \"Annual vibration inspection required\", \"extraction_mode\": \"model\", \"extraction_error\": null}"
+        },
+        {
+          "relation_type": "HAS_WORK_ORDER",
+          "metadata": "{\"detail\": \"Pump P-101 Vibration inspection completed for Pump P-101 serial SN-900001 under rule R-EVAL for period 2025. SN-900001 2025 R-EVAL completed\", \"period\": \"2025\", \"status\": \"completed\", \"rule_id\": \"R-EVAL\", \"citation\": \"evaluation operations:old_completion\", \"symptoms\": [], \"component\": \"Pump P-101\", \"confidence\": 0.7, \"observation\": \"Vibration inspection completed\", \"extraction_mode\": \"model\", \"extraction_error\": null}"
+        },
+        {
+          "relation_type": "HAS_WORK_ORDER",
+          "metadata": "{\"detail\": \"Pump P-101 Paint inspection completed for Pump P-101 serial SN-900001 under different rule R-OTHER for period 2026. SN-900001 2026 R-OTHER completed\", \"period\": \"2026\", \"status\": \"completed\", \"rule_id\": \"R-OTHER\", \"citation\": \"evaluation operations:unrelated_completion\", \"symptoms\": [], \"component\": \"Pump P-101\", \"confidence\": 0.7, \"observation\": \"Paint inspection completed successfully\", \"extraction_mode\": \"model\", \"extraction_error\": null}"
+        }
+      ]
+    },
+    {
+      "name": "benign record creates no failure edge",
+      "passed": true
+    },
+    {
+      "name": "OKF dossier is built, cited, stored and embedded",
+      "passed": true,
+      "markdown": "---\ntype: Asset\ntitle: Pump P-101\nunified_id: ua-014f303b2818438a\naliases:\n  - serial_number: sn-900001  # from evaluation operations, evaluation registry\n---\n\n# Pump P-101\n\n## Source record\n- **evaluation operations** (2026-10-12) \u2014 `evaluation operations:incident`\n  - Pump P-101 Pump P-101 serial SN-900001 has a vibration alarm at 7 mm/s while running. No cause has been diagnosed. SN-900001\n  - name: Pump P-101\n  - _source: document\n  - _event_kind: failure\n  - description: Pump P-101 serial SN-900001 has a vibration alarm at 7 mm/s while running. No cause has been diagnosed.\n  - _entity_kind: physical_instance\n  - serial_number: SN-900001\n  - _identity_namespace: evaluation-plant\n- **evaluation operations** (2026-10-12) \u2014 `evaluation operations:old_completion`\n  - Pump P-101 Vibration inspection completed for Pump P-101 serial SN-900001 under rule R-EVAL for period 2025. SN-900001 2025 R-EVAL completed\n  - name: Pump P-101\n  - period: 2025\n  - status: completed\n  - _source: document\n  - rule_id: R-EVAL\n  - _event_kind: work_order\n  - description: Vibration inspection completed for Pump P-101 serial SN-900001 under rule R-EVAL for period 2025.\n  - _entity_kind: physical_instance\n  - serial_number: SN-900001\n  - _identity_namespace: evaluation-plant\n- **evaluation operations** (2026-10-12) \u2014 `evaluation operations:rule`\n  - Pump P-101 Annual vibration inspection required for Pump P-101 serial SN-900001 under rule R-EVAL, period 2026. SN-900001 2026 R-EVAL\n  - name: Pump P-101\n  - period: 2026\n  - _source: document\n  - rule_id: R-EVAL\n  - _event_kind: rule\n  - description: Annual vibration inspection required for Pump P-101 serial SN-900001 under rule R-EVAL, period 2026.\n  - _entity_kind: physical_instance\n  - serial_number: SN-900001\n  - _identity_namespace: evaluation-plant\n- **evaluation operations** (2026-10-12) \u2014 `evaluation operations:unrelated_completion`\n  - Pump P-101 Paint inspection completed for Pump P-101 serial SN-900001 under different rule R-OTHER for period 2026. SN-900001 2026 R-OTHER completed\n  - name: Pump P-101\n  - period: 2026\n  - status: completed\n  - _source: document\n  - rule_id: R-OTHER\n  - _event_kind: work_order\n  - description: Paint inspection completed for Pump P-101 serial SN-900001 under different rule R-OTHER for period 2026.\n  - _entity_kind: physical_instance\n  - serial_number: SN-900001\n  - _identity_namespace: evaluation-plant\n\n## Asset register\n- **evaluation registry** (2026-10-12) \u2014 `evaluation registry:pump1`\n  - Pump P-101 Installed pump P-101, serial SN-900001\n  - name: Pump P-101\n  - _source: document\n  - description: Installed pump P-101, serial SN-900001\n  - _entity_kind: physical_instance\n  - serial_number: SN-900001\n  - _identity_namespace: evaluation-plant\n\n## Related assets\n- [Pump P-102](/assets/ua-20836e520c45f21c) \u2014 similar (description similarity 0.91)\n\n# Citations\n[1] evaluation operations:incident\n[2] evaluation operations:old_completion\n[3] evaluation operations:rule\n[4] evaluation operations:unrelated_completion\n[5] evaluation registry:pump1",
+      "embedded": true
+    },
+    {
+      "name": "RCA uses a real model with cited uncertain hypotheses",
+      "passed": true,
+      "result": {
+        "resolved": true,
+        "asset": {
+          "unified_id": "ua-014f303b2818438a",
+          "facts": {
+            "unified_id": "ua-014f303b2818438a",
+            "asset_name": "Pump P-101",
+            "needs_review": false,
+            "review_reason": "",
+            "identifiers": {
+              "serial_number": [
+                "sn-900001"
+              ]
+            },
+            "source_records": [
+              "evaluation operations:incident",
+              "evaluation operations:old_completion",
+              "evaluation operations:rule",
+              "evaluation operations:unrelated_completion",
+              "evaluation registry:pump1"
+            ]
+          }
+        },
+        "report": {
+          "summary": "Pump P-101 (serial SN-900001) exhibits a vibration alarm at 7 mm/s during operation, with no diagnosed cause. The vibration inspection was completed in 2025 under rule R-EVAL, and an unrelated paint inspection was completed in 2026 under rule R-OTHER. The observed vibration level suggests a mechanical issue such as imbalance, misalignment, bearing wear, or looseness, but without additional spectral or phase data, the specific failure mode cannot be determined from the given symptoms alone.",
+          "hypotheses": [
+            {
+              "cause": "Mechanical imbalance",
+              "explanation": "A rotating assembly imbalance generates centrifugal forces that increase with speed, producing elevated overall vibration levels detectable as a broadband increase in mm/s, consistent with the observed 7 mm/s alarm.",
+              "evidence": [
+                "evaluation operations:incident"
+              ],
+              "confidence": 0.6
+            },
+            {
+              "cause": "Misalignment",
+              "explanation": "Angular or parallel misalignment between the pump and driver shafts induces cyclic forces at 1x and 2x RPM, leading to increased radial or axial vibration that can manifest as elevated overall vibration levels.",
+              "evidence": [
+                "evaluation operations:incident"
+              ],
+              "confidence": 0.5
+            },
+            {
+              "cause": "Bearing wear or degradation",
+              "explanation": "Worn or damaged bearings produce impulsive forces and increased vibration energy across frequencies, contributing to higher overall vibration readings, especially if spalling or lubrication failure is present.",
+              "evidence": [
+                "evaluation operations:incident"
+              ],
+              "confidence": 0.5
+            },
+            {
+              "cause": "Looseness (mechanical)",
+              "explanation": "Loose components (e.g., base bolts, bearing mounts, or coupling) allow excessive movement under dynamic loads, resulting in impact-like vibrations that raise overall vibration levels.",
+              "evidence": [
+                "evaluation operations:incident"
+              ],
+              "confidence": 0.4
+            }
+          ],
+          "contradictions": [],
+          "unresolved": [
+            "The vibration alarm is reported as a single overall value (7 mm/s) without frequency spectrum, phase, or time-waveform data, preventing discrimination between imbalance, misalignment, bearing faults, or looseness.",
+            "No operational context (load, speed, flow, pressure) is provided to assess if vibration is speed-dependent or load-related.",
+            "The maintenance records show inspections were completed but do not include findings or corrective actions, so it is unknown if prior issues were noted or left unaddressed."
+          ],
+          "generation_mode": "llm"
+        },
+        "causal_chain": [
+          {
+            "depth": 1,
+            "source_id": "asset:ua-014f303b2818438a",
+            "relation_type": "HAS_FAILURE",
+            "target_id": "fm:vibration_alarm_at_7_mm_s_while_running",
+            "metadata": {
+              "detail": "Pump P-101 Pump P-101 serial SN-900001 has a vibration alarm at 7 mm/s while running. No cause has been diagnosed. SN-900001",
+              "period": null,
+              "citation": "evaluation operations:incident",
+              "symptoms": [
+                "vibration alarm at 7 mm/s"
+              ],
+              "component": "Pump P-101",
+              "confidence": 0.7,
+              "observation": "Vibration alarm at 7 mm/s while running",
+              "extraction_mode": "model",
+              "extraction_error": null
+            },
+            "path": [
+              "asset:ua-014f303b2818438a",
+              "fm:vibration_alarm_at_7_mm_s_while_running"
+            ]
+          },
+          {
+            "depth": 1,
+            "source_id": "asset:ua-014f303b2818438a",
+            "relation_type": "HAS_SENSOR",
+            "target_id": "sensor:vibration",
+            "metadata": {
+              "name": "vibration",
+              "citation": "evaluation operations:incident"
+            },
+            "path": [
+              "asset:ua-014f303b2818438a",
+              "sensor:vibration"
+            ]
+          },
+          {
+            "depth": 1,
+            "source_id": "asset:ua-014f303b2818438a",
+            "relation_type": "HAS_WORK_ORDER",
+            "target_id": "wo:evaluation_operations_old_completion",
+            "metadata": {
+              "detail": "Pump P-101 Vibration inspection completed for Pump P-101 serial SN-900001 under rule R-EVAL for period 2025. SN-900001 2025 R-EVAL completed",
+              "period": "2025",
+              "status": "completed",
+              "rule_id": "R-EVAL",
+              "citation": "evaluation operations:old_completion",
+              "symptoms": [],
+              "component": "Pump P-101",
+              "confidence": 0.7,
+              "observation": "Vibration inspection completed",
+              "extraction_mode": "model",
+              "extraction_error": null
+            },
+            "path": [
+              "asset:ua-014f303b2818438a",
+              "wo:evaluation_operations_old_completion"
+            ]
+          },
+          {
+            "depth": 1,
+            "source_id": "asset:ua-014f303b2818438a",
+            "relation_type": "HAS_WORK_ORDER",
+            "target_id": "wo:evaluation_operations_unrelated_completion",
+            "metadata": {
+              "detail": "Pump P-101 Paint inspection completed for Pump P-101 serial SN-900001 under different rule R-OTHER for period 2026. SN-900001 2026 R-OTHER completed",
+              "period": "2026",
+              "status": "completed",
+              "rule_id": "R-OTHER",
+              "citation": "evaluation operations:unrelated_completion",
+              "symptoms": [],
+              "component": "Pump P-101",
+              "confidence": 0.7,
+              "observation": "Paint inspection completed successfully",
+              "extraction_mode": "model",
+              "extraction_error": null
+            },
+            "path": [
+              "asset:ua-014f303b2818438a",
+              "wo:evaluation_operations_unrelated_completion"
+            ]
+          }
+        ],
+        "evidence_from": "index"
+      }
+    },
+    {
+      "name": "RCA does not invent failures on healthy equipment",
+      "passed": true
+    },
+    {
+      "name": "old-period and unrelated completions cannot satisfy the obligation",
+      "passed": true,
+      "result": {
+        "scope": "asset",
+        "rule_id": null,
+        "asset": "ua-014f303b2818438a",
+        "resolution": {
+          "mention": "SN-900001",
+          "matches": [
+            {
+              "unified_id": "ua-014f303b2818438a",
+              "asset_name": "Pump P-101",
+              "matched_on": "serial_number=sn-900001",
+              "needs_review": false
+            }
+          ],
+          "resolved": true,
+          "reason": ""
+        },
+        "at_risk_assets": [
+          {
+            "asset": "asset:ua-014f303b2818438a",
+            "rule": "rule:R-EVAL",
+            "reason": "no completed work order satisfies this rule"
+          }
+        ],
+        "assessed_rule_links": 1,
+        "narrative": {
+          "generation_mode": "llm",
+          "summary": "The old inspection does not satisfy the 2026 obligation because no completed work order satisfies rule R-EVAL, leaving asset asset:ua-014f303b2818438a at risk.",
+          "posture": "at_risk",
+          "contradictions": [],
+          "unresolved": []
+        },
+        "evidence_from": "index"
+      }
+    },
+    {
+      "name": "no rules means unknown, not compliant",
+      "passed": true
+    },
+    {
+      "name": "live dense retrieval and reranking retrieve the incident plus OKF",
+      "passed": true,
+      "citations": [
+        {
+          "citation": "evaluation operations:incident",
+          "unified_id": "ua-014f303b2818438a",
+          "system": "evaluation operations",
+          "text": "Pump P-101 Pump P-101 serial SN-900001 has a vibration alarm at 7 mm/s while running. No cause has been diagnosed. SN-900001",
+          "similarity": 0.7039,
+          "raw": {
+            "name": "Pump P-101",
+            "_source": "document",
+            "record_id": "incident",
+            "_event_kind": "failure",
+            "description": "Pump P-101 serial SN-900001 has a vibration alarm at 7 mm/s while running. No cause has been diagnosed.",
+            "_entity_kind": "physical_instance",
+            "serial_number": "SN-900001",
+            "_identity_namespace": "evaluation-plant",
+            "retrieval_method": "hybrid_rrf",
+            "vector_search_used": true,
+            "reranker_used": true,
+            "retrieval_warnings": []
+          }
+        },
+        {
+          "citation": "evaluation operations:rule",
+          "unified_id": "ua-014f303b2818438a",
+          "system": "evaluation operations",
+          "text": "Pump P-101 Annual vibration inspection required for Pump P-101 serial SN-900001 under rule R-EVAL, period 2026. SN-900001 2026 R-EVAL",
+          "similarity": 0.6476,
+          "raw": {
+            "name": "Pump P-101",
+            "period": "2026",
+            "_source": "document",
+            "rule_id": "R-EVAL",
+            "record_id": "rule",
+            "_event_kind": "rule",
+            "description": "Annual vibration inspection required for Pump P-101 serial SN-900001 under rule R-EVAL, period 2026.",
+            "_entity_kind": "physical_instance",
+            "serial_number": "SN-900001",
+            "_identity_namespace": "evaluation-plant",
+            "retrieval_method": "hybrid_rrf",
+            "vector_search_used": true,
+            "reranker_used": true,
+            "retrieval_warnings": []
+          }
+        },
+        {
+          "citation": "evaluation operations:old_completion",
+          "unified_id": "ua-014f303b2818438a",
+          "system": "evaluation operations",
+          "text": "Pump P-101 Vibration inspection completed for Pump P-101 serial SN-900001 under rule R-EVAL for period 2025. SN-900001 2025 R-EVAL completed",
+          "similarity": 0.6182,
+          "raw": {
+            "name": "Pump P-101",
+            "period": "2025",
+            "status": "completed",
+            "_source": "document",
+            "rule_id": "R-EVAL",
+            "record_id": "old_completion",
+            "_event_kind": "work_order",
+            "description": "Vibration inspection completed for Pump P-101 serial SN-900001 under rule R-EVAL for period 2025.",
+            "_entity_kind": "physical_instance",
+            "serial_number": "SN-900001",
+            "_identity_namespace": "evaluation-plant",
+            "retrieval_method": "hybrid_rrf",
+            "vector_search_used": true,
+            "reranker_used": true,
+            "retrieval_warnings": []
+          }
+        },
+        {
+          "citation": "evaluation operations:unrelated_completion",
+          "unified_id": "ua-014f303b2818438a",
+          "system": "evaluation operations",
+          "text": "Pump P-101 Paint inspection completed for Pump P-101 serial SN-900001 under different rule R-OTHER for period 2026. SN-900001 2026 R-OTHER completed",
+          "similarity": 0.4436,
+          "raw": {
+            "name": "Pump P-101",
+            "period": "2026",
+            "status": "completed",
+            "_source": "document",
+            "rule_id": "R-OTHER",
+            "record_id": "unrelated_completion",
+            "_event_kind": "work_order",
+            "description": "Paint inspection completed for Pump P-101 serial SN-900001 under different rule R-OTHER for period 2026.",
+            "_entity_kind": "physical_instance",
+            "serial_number": "SN-900001",
+            "_identity_namespace": "evaluation-plant",
+            "retrieval_method": "hybrid_rrf",
+            "vector_search_used": true,
+            "reranker_used": true,
+            "retrieval_warnings": []
+          }
+        },
+        {
+          "citation": "evaluation operations:normal",
+          "unified_id": "ua-20836e520c45f21c",
+          "system": "evaluation operations",
+          "text": "Pump P-102 Pump P-102 serial SN-900002 is operating normally with no fault and vibration within tolerance. SN-900002",
+          "similarity": 0.5,
+          "raw": {
+            "name": "Pump P-102",
+            "_source": "document",
+            "record_id": "normal",
+            "_event_kind": "failure",
+            "description": "Pump P-102 serial SN-900002 is operating normally with no fault and vibration within tolerance.",
+            "_entity_kind": "physical_instance",
+            "serial_number": "SN-900002",
+            "_identity_namespace": "evaluation-plant",
+            "retrieval_method": "hybrid_rrf",
+            "vector_search_used": true,
+            "reranker_used": true,
+            "retrieval_warnings": []
+          }
+        },
+        {
+          "citation": "evaluation registry:pump1",
+          "unified_id": "ua-014f303b2818438a",
+          "system": "evaluation registry",
+          "text": "Pump P-101 Installed pump P-101, serial SN-900001",
+          "similarity": 0.4738,
+          "raw": {
+            "name": "Pump P-101",
+            "_source": "document",
+            "record_id": "pump1",
+            "description": "Installed pump P-101, serial SN-900001",
+            "_entity_kind": "physical_instance",
+            "serial_number": "SN-900001",
+            "_identity_namespace": "evaluation-plant",
+            "retrieval_method": "hybrid_rrf",
+            "vector_search_used": true,
+            "reranker_used": true,
+            "retrieval_warnings": []
+          }
+        },
+        {
+          "citation": "okf:ua-014f303b2818438a",
+          "unified_id": "ua-014f303b2818438a",
+          "system": "OKF",
+          "text": "---\ntype: Asset\ntitle: Pump P-101\nunified_id: ua-014f303b2818438a\naliases:\n  - serial_number: sn-900001  # from evaluation operations, evaluation registry\n---\n\n# Pump P-101\n\n## Source record\n- **evaluation operations** (2026-10-12) \u2014 `evaluation operations:incident`\n  - Pump P-101 Pump P-101 serial SN-900001 has a vibration alarm at 7 mm/s while running. No cause has been diagnosed. SN-900001\n  - name: Pump P-101\n  - _source: document\n  - _event_kind: failure\n  - description: Pump P-101 serial SN-900001 has a vibration alarm at 7 mm/s while running. No cause has been diagnosed.\n  - _entity_kind: physical_instance\n  - serial_number: SN-900001\n  - _identity_namespace: evaluation-plant\n- **evaluation operations** (2026-10-12) \u2014 `evaluation operations:old_completion`\n  - Pump P-101 Vibration inspection completed for Pump P-101 serial SN-900001 under rule R-EVAL for period 2025. SN-900001 2025 R-EVAL completed\n  - name: Pump P-101\n  - period: 2025\n  - status: completed\n  - _source: document\n  - rule_id: R-EVAL\n  - _event_kind: work_order\n  - description: Vibration inspection completed for Pump P-101 serial SN-900001 under rule R-EVAL for period 2025.\n  - _entity_kind: physical_instance\n  - serial_number: SN-900001\n  - _identity_namespace: evaluation-plant\n- **evaluation operations** (2026-10-12) \u2014 `evaluation operations:rule`\n  - Pump P-101 Annual vibration inspection required for Pump P-101 serial SN-900001 under rule R-EVAL, period 2026. SN-900001 2026 R-EVAL\n  - name: Pump P-10",
+          "similarity": 0.596,
+          "raw": {}
+        }
+      ]
+    },
+    {
+      "name": "ingestion enrichment complete",
+      "passed": true,
+      "seconds": 4.409,
+      "events": [
+        {
+          "step": "start",
+          "message": "Ingesting into 1 source(s)"
+        },
+        {
+          "step": "delta",
+          "message": "0 new; 1 updated; 0 unchanged record(s)",
+          "new": 0,
+          "skipped": 0,
+          "updated": 1
+        },
+        {
+          "step": "normalize",
+          "message": "Normalized 7 record(s) across 2 source(s)"
+        },
+        {
+          "step": "embedding",
+          "message": "Embedded 1 new record(s); reused 6"
+        },
+        {
+          "step": "resolve",
+          "message": "Resolved into 2 unified asset(s); 0 item(s) need review",
+          "clusters": 2,
+          "review": 0
+        },
+        {
+          "step": "project",
+          "message": "Projected 9 physical edge(s)"
+        },
+        {
+          "step": "persist",
+          "message": "Rebuilt unified assets, identifiers and graph"
+        },
+        {
+          "step": "operational",
+          "message": "Operational graph: 1 failure(s), 2 work order(s), 1 rule(s), 3 sensor link(s) extracted from content",
+          "failures": 1,
+          "work_orders": 2,
+          "rules": 1,
+          "sensors": 3,
+          "skipped": 0,
+          "benign": 1,
+          "dependencies": 0,
+          "fallbacks": 0
+        },
+        {
+          "step": "bundle",
+          "message": "Materialized OKF knowledge bundles (1 (re)embedded)"
+        },
+        {
+          "step": "complete",
+          "message": "Ingestion complete",
+          "warnings": [],
+          "summary": {
+            "new": 0,
+            "updated": 1,
+            "skipped": 0,
+            "unified_assets": 2,
+            "edges": 9,
+            "review_items": 0,
+            "clusters": [
+              {
+                "unified_id": "ua-014f303b2818438a",
+                "members": [
+                  "evaluation operations:incident",
+                  "evaluation operations:old_completion",
+                  "evaluation operations:rule",
+                  "evaluation operations:unrelated_completion",
+                  "evaluation registry:pump1"
+                ],
+                "decision": "auto_merged",
+                "confidence": 1.0,
+                "identifiers": {
+                  "serial_number": [
+                    "sn-900001"
+                  ]
+                }
+              },
+              {
+                "unified_id": "ua-20836e520c45f21c",
+                "members": [
+                  "evaluation operations:normal",
+                  "evaluation registry:pump2"
+                ],
+                "decision": "auto_merged",
+                "confidence": 1.0,
+                "identifiers": {
+                  "serial_number": [
+                    "sn-900002"
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "current rule/period completion satisfies only the linked obligation",
+      "passed": true,
+      "result": {
+        "scope": "asset",
+        "rule_id": null,
+        "asset": "ua-014f303b2818438a",
+        "resolution": {
+          "mention": "SN-900001",
+          "matches": [
+            {
+              "unified_id": "ua-014f303b2818438a",
+              "asset_name": "Pump P-101",
+              "matched_on": "serial_number=sn-900001",
+              "needs_review": false
+            }
+          ],
+          "resolved": true,
+          "reason": ""
+        },
+        "at_risk_assets": [],
+        "assessed_rule_links": 1,
+        "narrative": {
+          "generation_mode": "llm",
+          "summary": "The 2026 inspection obligation is satisfied as the linked rule R-EVAL is marked satisfied and no assets are at risk.",
+          "posture": "compliant",
+          "contradictions": [],
+          "unresolved": []
+        },
+        "evidence_from": "index"
+      }
+    },
+    {
+      "name": "record revision preserves canonical ID and archives old evidence",
+      "passed": true
+    }
+  ],
+  "database_preserved": true,
+  "baseline_counts": {
+    "source_records": 0,
+    "unified_assets": 0,
+    "edges": 0,
+    "okf_documents": 0,
+    "document_parses": 10
+  },
+  "after_counts": {
+    "source_records": 0,
+    "unified_assets": 0,
+    "edges": 0,
+    "okf_documents": 0,
+    "document_parses": 10
+  },
+  "passed": true
+}

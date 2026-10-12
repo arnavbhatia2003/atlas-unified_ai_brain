@@ -69,7 +69,7 @@ def _run(scenario):
         asyncio.run(scenario())
     except AssertionError:
         raise
-    except Exception as e:  # DB down -> skip, don't fail
+    except (OSError, asyncpg.CannotConnectNowError) as e:
         pytest.skip(f"Postgres not reachable: {e}")
 
 

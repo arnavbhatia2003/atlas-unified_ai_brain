@@ -246,7 +246,7 @@ const CAPS = [
   { idx: '02', h: '[ DISCOVERY ]', p: 'Autonomous Tri-Signal Voting (Pattern ≥0.80, Cardinality ≥0.80, Semantics ≥0.80) with sequential ID arithmetic guards.', stat: 'INFERRED SCHEMA NEEDS REVIEW' },
   { idx: '03', h: '[ RESOLUTION ]', p: 'Physics-weighted Union-Find clustering (Serial w=0.95, MAC w=0.90) with Transitive Bridge-Conflict Guard (×0.40 penalty).', stat: 'MATCH QUALITY REQUIRES EVALUATION' },
   { idx: '04', h: '[ GRAPH CTE ]', p: 'Dual-Layer Knowledge Graph projected into PostgreSQL. Multi-hop traversal via ANSI SQL:1999 Recursive CTEs.', stat: 'BOUNDED SQL TRAVERSAL' },
-  { idx: '05', h: '[ HYBRID RRF ]', p: 'Tri-modal search combining pgvector (2048-dim), PostgreSQL full-text search, and OKF dossiers with Nemotron Cross-Encoder reranking.', stat: 'RRF FUSION (K=60)' },
+  { idx: '05', h: '[ HYBRID RRF ]', p: 'Asset source retrieval fuses pgvector and PostgreSQL text search with RRF, then reranks with Nemotron. Embedded OKF dossiers add consolidated context.', stat: 'RRF FUSION (K=60)' },
   { idx: '06', h: '[ COMPLIANCE ]', p: 'Deterministic SQL anti-join (NOT EXISTS) regulatory safety audits. The LLM only authors prose; SQL decides compliance.', stat: 'DETERMINISTIC RULE CHECKS' },
 ]
 

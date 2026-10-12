@@ -149,6 +149,65 @@ def test_failed_operational_extraction_remains_retryable(monkeypatch):
     assert result["confidence"] == 0
 
 
+@pytest.mark.parametrize("workflow", ["rca", "compliance"])
+@pytest.mark.parametrize("failure", ["outage", "malformed", "truncated"])
+def test_workflow_failure_cannot_masquerade_as_model_analysis(monkeypatch, workflow, failure):
+    from importlib import import_module
+    module = import_module("app.workflows." + workflow)
+    class Model:
+        async def ainvoke(self, *args, **kwargs):
+            if failure == "outage": raise ConnectionError("Unavailable")
+            return SimpleNamespace(content='{}', response_metadata={"finish_reason":"length" if failure=="truncated" else "stop"})
+    monkeypatch.setattr(module, "get_fast_chat_model", lambda: Model())
+    monkeypatch.setattr(module, "resilient", lambda m: m)
+    evidence = {"at_risk":[{"asset":"test", "rule":"R1"}], "observed_failures":[{"citation":"INC-1", "detail":"Alarm"}]}
+    result = asyncio.run(module._default_reason("Analyze", evidence))
+    assert result["generation_mode"] == "manual_evidence"
+    if workflow == "rca": assert result["hypotheses"] == []
+    else: assert result["posture"] == "at_risk"
+
+
+def test_dead_ocr_worker_cannot_report_model_readiness(monkeypatch):
+    from app.services import documents
+    monkeypatch.setattr(documents, "_ocr_worker", SimpleNamespace(returncode=1, pid=123))
+    monkeypatch.setattr(documents, "_ocr_ready", True)
+    monkeypatch.setattr(documents, "_ocr_error", "BrokenPipeError")
+    assert documents.docling_status()["state"] == "failed"
+    assert documents.docling_status()["ok"] is False
+
+
+def test_rca_cannot_accept_a_fabricated_model_citation(monkeypatch):
+    from app.workflows import rca
+    class Model:
+        async def ainvoke(self, *args, **kwargs):
+            allowed = kwargs["response_format"]["json_schema"]["schema"]["$defs"]["Hypothesis"]["properties"]["evidence"]["items"]["enum"]
+            assert allowed == ["INC-1"]
+            return SimpleNamespace(content=json.dumps({"summary":"Alarm", "hypotheses":[{"cause":"Imbalance", "explanation":"Possible", "evidence":["FAKE-1"], "confidence":0.6}], "contradictions":[], "unresolved":[]}))
+    monkeypatch.setattr(rca, "get_fast_chat_model", lambda:Model())
+    monkeypatch.setattr(rca, "resilient", lambda m:m)
+    result=asyncio.run(rca._default_reason("Analyze", {"observed_failures":[{"citation":"INC-1", "detail":"Alarm"}]}))
+    assert result["generation_mode"] == "manual_evidence"
+    assert result["hypotheses"] == []
+
+
+def test_operational_projection_keeps_obligation_period(monkeypatch):
+    from app.workflows import extract_ops
+    from app.engine.resolution import SourceRecord
+    class Conn:
+        def __init__(self): self.edges=[]
+        async def execute(self, query, *args):
+            if query.startswith("insert into edges"):
+                self.edges.append({"relation":args[1], "metadata":json.loads(args[3])})
+    async def extracted(*args):
+        return {"rule_id":"R1", "sensors":[], "extraction_mode":"model"}
+    monkeypatch.setattr(extract_ops, "_load_or_extract", extracted)
+    conn=Conn()
+    rec=SourceRecord(record_id="r1", system="test")
+    asyncio.run(extract_ops.rebuild_operational_edges(conn,[rec],{"r1":"ua-test"},{},{"r1":{"_event_kind":"rule", "period":"2026"}}))
+    obligation=next(e for e in conn.edges if e["relation"]=="SUBJECT_TO")
+    assert obligation["metadata"]["period"] == "2026"
+
+
 @pytest.mark.parametrize("quote,accepted", [("Inspection interval is 17 days.",True),("Inspection interval is 3 days.",False)])
 def test_citation_requires_verbatim_support_in_that_passage(monkeypatch,quote,accepted):
     from app.workflows import chat

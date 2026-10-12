@@ -291,7 +291,7 @@ async def rebuild_operational_edges(
     """
     settings = get_settings()
     counts = {"failures": 0, "work_orders": 0, "rules": 0, "sensors": 0,
-              "skipped": 0, "benign": 0, "dependencies": 0}
+              "skipped": 0, "benign": 0, "dependencies": 0, "fallbacks": 0}
 
     # Rebuild is authoritative for the operational layer.
     await conn.execute("delete from edges where layer = 'operational'")
@@ -327,6 +327,7 @@ async def rebuild_operational_edges(
         if uid is None:
             continue
         ext = await _load_or_extract(conn, rid, rec.semantic_text, raw)
+        counts["fallbacks"] += ext.get("extraction_mode") == "deterministic_fallback"
         asset = asset_node(uid)
         dates = _dates_from(raw)
         base_meta = {
@@ -340,6 +341,7 @@ async def rebuild_operational_edges(
             "confidence": ext.get("confidence", 0.7),
             "extraction_mode": ext.get("extraction_mode", "cached"),
             "extraction_error": ext.get("extraction_error"),
+            "period": raw.get("period"),
             **dates,
         }
 

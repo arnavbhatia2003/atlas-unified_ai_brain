@@ -200,6 +200,7 @@ async def _ingest_records(
     yield {"step": "start", "message": f"Ingesting into {len(systems)} source(s)"}
     pool = get_pool()
     settings = get_settings()
+    warnings: list[str] = []
 
     async with pool.acquire() as conn:
         counts = await store_source_delta(conn, systems)
@@ -295,6 +296,7 @@ async def _ingest_records(
                     f"reused {len(emb_by_id) - len(vectors)}",
                 }
             else:
+                warnings.append("Source embeddings unavailable; exact-identifier matching only")
                 yield {
                     "step": "embedding",
                     "message": "Embedding service unavailable — exact-identifier matching only",
@@ -379,7 +381,6 @@ async def _ingest_records(
         await rebuild_projection(conn, result, edges, discoveries, db_id, names)
         yield {"step": "persist", "message": "Rebuilt unified assets, identifiers and graph"}
 
-        warnings: list[str] = []
         # 7. Operational-graph extraction — pull failures / work orders / rules
         #    out of operational-source records (grounded; one cached LLM call per
         #    record, never told the root cause) and link them to their resolved
@@ -392,6 +393,8 @@ async def _ingest_records(
             op = await rebuild_operational_edges(
                 conn, all_records, member_to_cluster, relation_by_system, raw_by_record
             )
+            if op["fallbacks"]:
+                warnings.append(f"{op['fallbacks']} operational record(s) used deterministic fallback; model extraction remains retryable")
             yield {
                 "step": "operational",
                 "message": (
@@ -411,6 +414,9 @@ async def _ingest_records(
             from app.workflows.retrieval import materialize_okf_bundles
 
             n_emb = await materialize_okf_bundles(conn)
+            missing = await conn.fetchval("select count(*) from okf_documents where embedding is null")
+            if settings.embeddings_enabled and missing:
+                warnings.append(f"{missing} OKF dossier(s) lack embeddings; semantic dossier search is incomplete")
             yield {
                 "step": "bundle",
                 "message": f"Materialized OKF knowledge bundles ({n_emb} (re)embedded)",

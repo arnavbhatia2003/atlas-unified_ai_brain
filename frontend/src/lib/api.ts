@@ -46,6 +46,7 @@ export interface ConnectorCreate {
 }
 
 export const api = {
+  health: (signal?: AbortSignal) => getJSON<{ checks: { docling: { state: string; ok: boolean; device: string; stage_batch_pages: number; threads: number } } }>('/api/health', signal),
   overview: (signal?: AbortSignal) => getJSON<Overview>('/api/overview', signal),
   graph: (asset?: string, signal?: AbortSignal) =>
     getJSON<GraphData>(

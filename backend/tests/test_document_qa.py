@@ -93,6 +93,7 @@ def test_negated_faults_are_not_failures_and_mixed_records_keep_real_failures():
 def test_rca_short_citation_cannot_match_longer_identifier():
     from app.workflows.rca import _calibrate_confidence
     result = _calibrate_confidence({"hypotheses":[{"cause":"bad", "evidence":["INC-1"], "confidence":1}], "contradictions":[]}, {"observed_failures":[{"citation":"INC-10", "detail":"fault"}]})
+    assert result["hypotheses"][0]["evidence"] == []
     assert result["hypotheses"][0]["confidence"] <= 0.4
 
 

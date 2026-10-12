@@ -558,6 +558,9 @@ def build_chat_graph() -> Any:
             emit("coverage", "Answering from available text; processing incomplete for: " + ", ".join(incomplete))
         if not document_id:
             records += await hybrid_search(conn, message, k=6)
+        retrieval_warnings = sorted({w for r in records for w in r.raw.get("retrieval_warnings", [])})
+        for warning in retrieval_warnings:
+            emit("retrieval_warning", warning)
         facts = None
         if not document_id and state.get("asset_hint"):
             res = await resolve_mention(conn, state["asset_hint"])
@@ -598,6 +601,8 @@ def build_chat_graph() -> Any:
             emit("token", "", text=answer)
         if incomplete:
             answer += "\n\nPDF processing is incomplete; these available passages may omit images or unreadable pages."
+        if retrieval_warnings:
+            answer += "\n\nRetrieval was degraded: " + "; ".join(retrieval_warnings)
         top_sim = max((r.similarity for r in records), default=0.0)
         confidence = round(min(1.0, top_sim if records else 0.5), 2)
         result = {
@@ -613,6 +618,7 @@ def build_chat_graph() -> Any:
             "evidence_from": "index",
             "answer_mode": answer_mode,
             "coverage_warning": bool(incomplete),
+            "retrieval_warnings": retrieval_warnings,
             "retrieval_method": records[0].raw.get("retrieval_method", "hybrid") if records else "structured",
         }
         emit("complete", "Answer complete", result=result)

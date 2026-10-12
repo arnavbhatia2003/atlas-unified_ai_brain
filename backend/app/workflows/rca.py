@@ -89,7 +89,7 @@ class Hypothesis(BaseModel):
     evidence: list[str] = Field(
         default_factory=list, description="citation ids (e.g. node/record ids) used"
     )
-    confidence: float = Field(description="0..1 confidence given ONLY the evidence")
+    confidence: float = Field(ge=0, le=1, description="0..1 heuristic strength given ONLY the evidence; not a probability")
 
 
 class RCAReport(BaseModel):
@@ -192,23 +192,16 @@ def _text_of(raw: Any) -> str:
     return c if isinstance(c, str) else str(c)
 
 
-def _reasoning_of(raw: Any) -> str:
-    ak = getattr(raw, "additional_kwargs", {}) or {}
-    return str(ak.get("reasoning_content") or ak.get("reasoning") or "")
-
-
-def _extract_json(text: str) -> dict[str, Any] | None:
-    text = (text or "").strip()
-    if "```" in text:
-        text = text.replace("```json", "```").split("```")[1] if text.count("```") >= 2 else text.strip("`")
-    start, end = text.find("{"), text.rfind("}")
-    if start == -1 or end == -1 or end <= start:
-        return None
-    try:
-        obj = json.loads(text[start : end + 1])
-        return obj if isinstance(obj, dict) else None
-    except json.JSONDecodeError:
-        return None
+def _known_citations(evidence: dict[str, Any]) -> set[str]:
+    known = set()
+    for group in ("observed_failures", "maintenance_history", "upstream_failures"):
+        for item in evidence.get(group) or []:
+            for key in ("citation", "depends_on"):
+                if item.get(key): known.add(str(item[key]))
+    for row in evidence.get("causal_chain") or []:
+        for key in ("source_id", "target_id"):
+            if row.get(key): known.add(str(row[key]))
+    return known
 
 
 def _calibrate_confidence(
@@ -224,44 +217,27 @@ def _calibrate_confidence(
       * corroborated— multiple observed failures / multiple distinct sources.
       * contradicted— open contradictions lower the ceiling.
     A hypothesis can only approach high confidence when it is grounded AND a
-    resolving cause is present; thin evidence stays low (calibrated abstention).
+    resolving cause is present; thin evidence stays low. These scores are heuristics, not probabilities.
     """
-    # Build the set of citation ids that genuinely exist in the evidence.
-    known: set[str] = set()
-    for f in evidence.get("observed_failures") or []:
-        if f.get("citation"):
-            known.add(str(f["citation"]).lower())
-    for m in evidence.get("maintenance_history") or []:
-        if m.get("citation"):
-            known.add(str(m["citation"]).lower())
-    upstream_ids: set[str] = set()
-    for u in evidence.get("upstream_failures") or []:
-        for key in ("citation", "depends_on"):
-            if u.get(key):
-                known.add(str(u[key]).lower())
-                upstream_ids.add(str(u[key]).lower())
-    for row in evidence.get("causal_chain") or []:
-        for key in ("source_id", "target_id"):
-            if row.get(key):
-                known.add(str(row[key]).lower())
+    known = _known_citations(evidence)
+    upstream_ids = {str(u[k]) for u in evidence.get("upstream_failures") or []
+                    for k in ("citation", "depends_on") if u.get(k)}
 
     n_failures = len(evidence.get("observed_failures") or [])
     has_upstream = bool(evidence.get("upstream_failures"))
     n_contra = len(report.get("contradictions") or [])
-    # distinct evidence sources cited across all hypotheses (corroboration)
-    all_cited: set[str] = set()
 
     def _matches(ev_id: str, pool: set[str]) -> bool:
-        e = ev_id.strip().lower()
+        e = ev_id.strip()
         return bool(e) and e in pool
 
     for h in report.get("hypotheses") or []:
         ev_ids = [str(e) for e in (h.get("evidence") or [])]
         grounded = bool(ev_ids) and all(_matches(e, known) for e in ev_ids)
-        for e in ev_ids:
-            if _matches(e, known):
-                all_cited.add(e.strip().lower())
-        text = f"{h.get('cause','')} {h.get('explanation','')}".lower()
+        rejected = [e for e in ev_ids if not _matches(e, known)]
+        if rejected:
+            h["evidence"] = [e for e in ev_ids if _matches(e, known)]
+            report.setdefault("unresolved", []).append("Rejected unsupported citation(s): " + ", ".join(rejected))
         uses_upstream = has_upstream and (
             any(_matches(e, upstream_ids) for e in ev_ids)
         )
@@ -287,31 +263,6 @@ def _calibrate_confidence(
     return report
 
 
-def _coerce_report(data: dict[str, Any]) -> dict[str, Any]:
-    hyps: list[dict[str, Any]] = []
-    for h in data.get("hypotheses") or []:
-        if not isinstance(h, dict):
-            continue
-        try:
-            conf = float(h.get("confidence", 0.5))
-        except (TypeError, ValueError):
-            conf = 0.5
-        hyps.append(
-            {
-                "cause": str(h.get("cause", "")).strip() or "Unspecified cause",
-                "explanation": str(h.get("explanation", "")),
-                "evidence": [str(e) for e in (h.get("evidence") or [])],
-                "confidence": max(0.0, min(1.0, conf)),
-            }
-        )
-    return {
-        "summary": str(data.get("summary", "")),
-        "hypotheses": hyps,
-        "contradictions": [str(c) for c in (data.get("contradictions") or [])],
-        "unresolved": [str(u) for u in (data.get("unresolved") or [])],
-    }
-
-
 async def _default_reason(question: str, evidence: dict[str, Any]) -> dict[str, Any]:
     # Request constrained JSON, then apply the workflow's evidence checks.
     model = resilient(get_fast_chat_model())
@@ -320,18 +271,31 @@ async def _default_reason(question: str, evidence: dict[str, Any]) -> dict[str, 
     # evidence exists — otherwise RCA says so and skips the LLM).
     q = question.strip() or "Infer the most likely root cause of each observed failure."
     human = f"{_format_evidence(evidence)}\n\nTask: {q}{_JSON_SHAPE}"
+    known = _known_citations(evidence)
+    schema = RCAReport.model_json_schema()
+    if known:
+        schema["$defs"]["Hypothesis"]["properties"]["evidence"]["items"]["enum"] = sorted(known)
     data: dict[str, Any] | None = None
-    for _ in range(2):
+    error_type = None
+    try:
         raw = await model.ainvoke(
             [SystemMessage(content=_SYSTEM), HumanMessage(content=human)],
-            response_format=json_response_format("RCAReport", RCAReport.model_json_schema()),
+            response_format=json_response_format("RCAReport", schema),
         )
-        data = _extract_json(_text_of(raw)) or _extract_json(_reasoning_of(raw))
-        if data:
-            break
+        if (getattr(raw, "response_metadata", {}) or {}).get("finish_reason") == "length":
+            raise ValueError("Truncated workflow output")
+        data = RCAReport.model_validate_json(_text_of(raw)).model_dump()
+        for hypothesis in data["hypotheses"]:
+            ids = hypothesis["evidence"]
+            if not ids or any(c not in known for c in ids):
+                data = None
+                raise ValueError("Hypothesis has no valid evidence citation")
+    except Exception as exc:
+        error_type = type(exc).__name__
     if not data:
         failures = evidence.get("observed_failures") or []
         return {
+            "generation_mode": "manual_evidence", "error_type": error_type,
             "summary": (
                 "A structured analysis could not be produced this run; the observed "
                 "failures are listed below for manual review."
@@ -343,7 +307,7 @@ async def _default_reason(question: str, evidence: dict[str, Any]) -> dict[str, 
                 for f in failures
             ],
         }
-    return _coerce_report(data)
+    return {**data, "generation_mode": "llm"}
 
 
 # --- graph state -----------------------------------------------------------
@@ -414,6 +378,7 @@ def build_rca_graph(reasoner: Reasoner = _default_reason) -> Any:
                 "No failure or incident evidence linked to this asset in the index.",
             )
             report = {
+                "generation_mode": "no_evidence",
                 "summary": (
                     "No failure, incident, or violation evidence is linked to this "
                     "asset in the current index, so a root cause cannot be "
@@ -462,8 +427,7 @@ def build_rca_graph(reasoner: Reasoner = _default_reason) -> Any:
             "causal_chain": state.get("chain") or [],
         }
         report = await reasoner(state.get("question", ""), evidence)
-        # Calibrate confidence to the evidence actually gathered (grounding +
-        # resolving-cause), so scores reflect certainty, not model eagerness.
+        # Bound heuristic scores by available evidence; they are not calibrated probabilities.
         report = _calibrate_confidence(report, evidence)
         emit(
             "reason",

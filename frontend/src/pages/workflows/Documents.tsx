@@ -49,6 +49,7 @@ export function Documents() {
   const [status, setStatus] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [docs, setDocs] = useState<DocumentParse[]>([])
+  const [ocr, setOcr] = useState<Awaited<ReturnType<typeof api.health>>['checks']['docling'] | null>(null)
   const jobIdRef = useRef<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
   const logEndRef = useRef<HTMLDivElement>(null)
@@ -60,6 +61,14 @@ export function Documents() {
       /* ignore */
     }
   }
+
+  useEffect(() => {
+    const controller = new AbortController()
+    const refresh = () => api.health(controller.signal).then(h => setOcr(h.checks.docling)).catch(() => setOcr(null))
+    refresh()
+    const timer = setInterval(refresh, 10000)
+    return () => { clearInterval(timer); controller.abort() }
+  }, [])
 
   // Subscribe (or re-subscribe) to a background job's status stream. The stream
   // replays the full buffered log then follows the live tail, so returning to
@@ -185,6 +194,13 @@ export function Documents() {
       </div>
 
       {/* Upload */}
+      <Card className="mb-4 px-5 py-4" role="status">
+        <p className="text-sm font-medium">Local Docling OCR: {ocr?.state ?? 'status unavailable'}</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {ocr?.ok ? `Layout, table and OCR models loaded · ${ocr.device.toUpperCase()} · ${ocr.threads} threads · ${ocr.stage_batch_pages} page per stage batch` :
+            'Selectable text can be indexed independently. Images and scans require the OCR worker to be ready.'}
+        </p>
+      </Card>
       <Card className="mb-4 gap-4 py-5">
         <div className="px-5">
           <h2 className="text-base font-semibold">Upload PDFs</h2>

@@ -1,0 +1,98 @@
+{
+  "scope": "Existing three-page mixed text/image PDF reprocessed with CPU/2-thread/one-page-stage Docling settings; no new PDF or asset fixture stored",
+  "seconds": 5.118,
+  "events": [
+    {
+      "step": "start",
+      "message": "Ingesting 1 document(s)"
+    },
+    {
+      "step": "parse",
+      "message": "Reading classroom-mixed-scan.pdf: fast text, Docling layout/OCR for images and scans\u2026",
+      "filename": "classroom-mixed-scan.pdf"
+    },
+    {
+      "step": "searchable",
+      "parse_id": 23,
+      "message": "classroom-mixed-scan.pdf: original saved; 2 native passages available for questions. Layout/OCR and optional asset extraction may still be running."
+    },
+    {
+      "step": "extracted",
+      "message": "classroom-mixed-scan.pdf: ready for document questions; asset extraction not requested; 3 page(s) / 3 passage(s); 1 OCR page(s); 0 unreadable page(s)",
+      "filename": "classroom-mixed-scan.pdf",
+      "records": 0,
+      "doc_type": null
+    },
+    {
+      "step": "done",
+      "message": "Document ingestion finished; 0 file(s) failed"
+    },
+    {
+      "step": "_end",
+      "message": "",
+      "status": "done"
+    }
+  ],
+  "result": {
+    "intent": "ask",
+    "answer": "17 days [PDF:23:p2:c1]",
+    "citations": [
+      {
+        "id": "PDF:23:p1:c0",
+        "unified_id": null,
+        "system": "classroom-mixed-scan.pdf",
+        "similarity": 0.0,
+        "document_id": 23,
+        "page": 1,
+        "filename": "classroom-mixed-scan.pdf",
+        "retrieval_method": "whole_document",
+        "document_status": "processed",
+        "unreadable_pages": []
+      },
+      {
+        "id": "PDF:23:p2:c1",
+        "unified_id": null,
+        "system": "classroom-mixed-scan.pdf",
+        "similarity": 0.0,
+        "document_id": 23,
+        "page": 2,
+        "filename": "classroom-mixed-scan.pdf",
+        "retrieval_method": "whole_document",
+        "document_status": "processed",
+        "unreadable_pages": []
+      },
+      {
+        "id": "PDF:23:p3:c2",
+        "unified_id": null,
+        "system": "classroom-mixed-scan.pdf",
+        "similarity": 0.0,
+        "document_id": 23,
+        "page": 3,
+        "filename": "classroom-mixed-scan.pdf",
+        "retrieval_method": "whole_document",
+        "document_status": "processed",
+        "unreadable_pages": []
+      }
+    ],
+    "confidence": 0.0,
+    "contradictions": [],
+    "evidence_from": "index",
+    "answer_mode": "llm",
+    "coverage_warning": false,
+    "retrieval_warnings": [],
+    "retrieval_method": "whole_document"
+  },
+  "runtime": {
+    "enabled": true,
+    "ok": true,
+    "state": "ready",
+    "pid": 29732,
+    "device": "cpu",
+    "threads": 2,
+    "stage_batch_pages": 1,
+    "queue_max_size": 2,
+    "ocr": "RapidOCR / ONNX Runtime",
+    "error_type": null
+  },
+  "passed": true
+}

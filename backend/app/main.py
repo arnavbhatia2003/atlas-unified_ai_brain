@@ -127,6 +127,8 @@ async def health() -> JSONResponse:
     always names what was checked so the frontend can show real status rather
     than a generic spinner outcome.
     """
+    from .services.documents import docling_status
+    ocr = docling_status()
     try:
         db = await check_database()
         return JSONResponse(
@@ -136,6 +138,7 @@ async def health() -> JSONResponse:
                 "checks": {
                     "api": {"ok": True},
                     "database": {"ok": True, **db},
+                    "docling": ocr,
                 },
             },
         )
@@ -147,6 +150,7 @@ async def health() -> JSONResponse:
                 "checks": {
                     "api": {"ok": True},
                     "database": {"ok": False, "error": str(exc)},
+                    "docling": ocr,
                 },
             },
         )

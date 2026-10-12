@@ -74,25 +74,6 @@ def _text_of(raw: Any) -> str:
     return c if isinstance(c, str) else str(c)
 
 
-def _reasoning_of(raw: Any) -> str:
-    ak = getattr(raw, "additional_kwargs", {}) or {}
-    return str(ak.get("reasoning_content") or ak.get("reasoning") or "")
-
-
-def _extract_json(text: str) -> dict[str, Any] | None:
-    text = (text or "").strip()
-    if "```" in text:
-        text = text.replace("```json", "```").split("```")[1] if text.count("```") >= 2 else text.strip("`")
-    start, end = text.find("{"), text.rfind("}")
-    if start == -1 or end == -1 or end <= start:
-        return None
-    try:
-        obj = json.loads(text[start : end + 1])
-        return obj if isinstance(obj, dict) else None
-    except json.JSONDecodeError:
-        return None
-
-
 async def _default_reason(question: str, evidence: dict[str, Any]) -> dict[str, Any]:
     # The deterministic at-risk list remains authoritative over model narrative.
     model = resilient(get_fast_chat_model())
@@ -106,16 +87,20 @@ async def _default_reason(question: str, evidence: dict[str, Any]) -> dict[str, 
     )
     at_risk = evidence.get("at_risk") or []
     data: dict[str, Any] | None = None
-    for _ in range(2):
+    error_type = None
+    try:
         raw = await model.ainvoke(
             [SystemMessage(content=_SYSTEM), HumanMessage(content=human)],
             response_format=json_response_format("ComplianceNarrative", ComplianceNarrative.model_json_schema()),
         )
-        data = _extract_json(_text_of(raw)) or _extract_json(_reasoning_of(raw))
-        if data:
-            break
+        if (getattr(raw, "response_metadata", {}) or {}).get("finish_reason") == "length":
+            raise ValueError("Truncated workflow output")
+        data = ComplianceNarrative.model_validate_json(_text_of(raw)).model_dump()
+    except Exception as exc:
+        error_type = type(exc).__name__
     if not data:
         return {
+            "generation_mode": "manual_evidence", "error_type": error_type,
             "summary": "Posture summary unavailable this run; see the at-risk list.",
             "posture": "at_risk" if at_risk else "unknown",
             "contradictions": [],
@@ -127,6 +112,7 @@ async def _default_reason(question: str, evidence: dict[str, Any]) -> dict[str, 
     if posture not in ("compliant", "at_risk", "unknown"):
         posture = "at_risk" if at_risk else "unknown"
     return {
+        "generation_mode": "llm",
         "summary": str(data.get("summary", "")),
         "posture": posture,
         "contradictions": [str(c) for c in (data.get("contradictions") or [])],
@@ -249,6 +235,7 @@ def build_compliance_graph(reasoner: Reasoner = _default_reason) -> Any:
         if not state.get("has_compliance_evidence"):
             emit("reason", "No compliance rules linked to this scope in the index.")
             narrative = {
+                "generation_mode": "no_evidence",
                 "summary": (
                     "No compliance rules are linked to this scope in the current "
                     "index, so compliance cannot be determined from available evidence."
@@ -277,6 +264,7 @@ def build_compliance_graph(reasoner: Reasoner = _default_reason) -> Any:
             "resolution": state.get("resolution"),
             # Deterministic, authoritative — never model-generated.
             "at_risk_assets": state.get("at_risk", []),
+            "assessed_rule_links": len(state.get("rules") or []),
             "narrative": state.get("narrative"),
             "evidence_from": "index",
         }

@@ -192,3 +192,5 @@ docs/       Architecture diagrams (mermaid) + screenshots
 ## License
 
 [MIT](LICENSE)
+
+The current [readiness and limitations](docs/project-readiness.md) distinguish PDF Q&A from installed-asset workflows. Separate measured evidence covers [real PDF model answers](docs/atlas-real-document-acceptance.json), [matching/OKF/graph/RCA/compliance/RAG](docs/atlas-asset-workflow-acceptance.json), [local Docling readiness and mixed-page OCR](docs/atlas-docling-runtime-acceptance.json), and [cached weight provenance](docs/atlas-docling-weight-verification.json). The Documents page exposes actual local OCR readiness.

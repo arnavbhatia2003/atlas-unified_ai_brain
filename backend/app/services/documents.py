@@ -104,19 +104,14 @@ def _get_converter(ocr: bool) -> Any:
         TableFormerMode,
         RapidOcrOptions,
     )
-    from docling.datamodel.settings import settings as docling_settings
+    from docling.datamodel.accelerator_options import AcceleratorOptions, AcceleratorDevice
     from docling.document_converter import DocumentConverter, PdfFormatOption
 
-    # Process ONE page at a time so memory is released between them — large
-    # reports (100+ pages) otherwise rasterize many pages at once and OOM
-    # (std::bad_alloc) on constrained machines. If Docling still fails to render
-    # (very large pages), parse_pdf_bytes falls back to a low-memory text parse.
-    try:
-        docling_settings.perf.page_batch_size = 1
-    except Exception:
-        pass
-
     opts = PdfPipelineOptions()
+    # Bound the actual threaded pipeline, including queues, on the user's laptop.
+    opts.accelerator_options = AcceleratorOptions(device=AcceleratorDevice.CPU, num_threads=2)
+    opts.ocr_batch_size = opts.layout_batch_size = opts.table_batch_size = 1
+    opts.queue_max_size = 2
     opts.do_ocr = ocr
     opts.ocr_options = RapidOcrOptions(lang=["english"], backend="onnxruntime")
     opts.document_timeout = 180
@@ -427,21 +422,40 @@ def parse_pdf_bytes(data: bytes, filename: str, *, ocr: bool = False) -> ParsedD
 
 _ocr_worker = None
 _ocr_lock = asyncio.Lock()
+_ocr_ready = False
+_ocr_error = None
+
+
+def docling_status() -> dict[str, Any]:
+    alive = _ocr_worker is not None and _ocr_worker.returncode is None
+    enabled = _docling_enabled()
+    state = "disabled" if not enabled else (
+        "busy" if alive and _ocr_ready and _ocr_lock.locked() else
+        "ready" if alive and _ocr_ready else
+        "warming" if alive else "failed" if _ocr_error else "stopped"
+    )
+    return {"enabled": enabled, "ok": alive and _ocr_ready, "state": state,
+            "pid": _ocr_worker.pid if alive else None, "device": "cpu",
+            "threads": 2, "stage_batch_pages": 1, "queue_max_size": 2,
+            "ocr": "RapidOCR / ONNX Runtime", "error_type": _ocr_error}
 
 
 async def close_docling_worker() -> None:
-    global _ocr_worker
+    global _ocr_worker, _ocr_ready
     if _ocr_worker and _ocr_worker.returncode is None:
         _ocr_worker.kill()
         await _ocr_worker.wait()
     _ocr_worker = None
+    _ocr_ready = False
 
 
 async def _start_docling_worker() -> None:
-    global _ocr_worker
+    global _ocr_worker, _ocr_ready, _ocr_error
     import sys
     if _ocr_worker and _ocr_worker.returncode is None:
         return
+    _ocr_ready = False
+    _ocr_error = None
     _ocr_worker = await asyncio.create_subprocess_exec(
         sys.executable, "-m", "app.services.document_worker", "--server",
         stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL,
@@ -450,7 +464,9 @@ async def _start_docling_worker() -> None:
         ready = await asyncio.wait_for(_ocr_worker.stdout.readline(), timeout=180)
         if ready.strip() != b"ATLAS_DOCLING_READY":
             raise ValueError("Docling OCR worker could not initialize; verify full dependencies and model downloads")
-    except BaseException:
+        _ocr_ready = True
+    except BaseException as exc:
+        _ocr_error = type(exc).__name__
         await close_docling_worker()
         raise
 
@@ -462,6 +478,7 @@ async def warm_docling_worker() -> None:
 
 
 async def _docling_pages(source: str, output: str, pages: list[int]) -> None:
+    global _ocr_error
     import json
     async with _ocr_lock:
         try:
@@ -471,7 +488,8 @@ async def _docling_pages(source: str, output: str, pages: list[int]) -> None:
             done = await asyncio.wait_for(_ocr_worker.stdout.readline(), timeout=300)
             if done.strip() != b"ATLAS_DOCLING_DONE":
                 raise ValueError("Docling OCR worker stopped; the durable PDF remains available for retry")
-        except BaseException:
+        except BaseException as exc:
+            _ocr_error = type(exc).__name__
             await close_docling_worker()
             raise
 

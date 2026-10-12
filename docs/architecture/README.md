@@ -1,5 +1,7 @@
 # Atlas - architecture, layer by layer
 
+These layer notes explain the earlier design. For current verified behavior, measured results and unresolved limits, read [project readiness](../project-readiness.md) and the [source-pinned interactive architecture](../atlas-architecture.html).
+
 Read top to bottom. Each file is one idea, one diagram, minimal text. Start with the
 whole system, then peel one layer at a time - the same way you'd explain it to
 someone seeing it for the first time.

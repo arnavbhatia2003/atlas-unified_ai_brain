@@ -13,8 +13,7 @@ import type {
   RcaResult,
 } from '@/lib/types'
 
-function confidenceTone(c: number): 'verified' | 'review' | 'neutral' {
-  if (c >= 0.7) return 'verified'
+function confidenceTone(c: number): 'review' | 'neutral' {
   if (c >= 0.4) return 'review'
   return 'neutral'
 }
@@ -38,12 +37,13 @@ export function RcaReportView({ result }: { result: RcaResult }) {
   }
   return (
     <div className="space-y-4">
+      <Badge variant="outline">{report.generation_mode === 'llm' ? 'Model hypotheses' : report.generation_mode === 'manual_evidence' ? 'Model unavailable · manual evidence' : report.generation_mode === 'no_evidence' ? 'No failure evidence' : 'Stored analysis · generation mode unrecorded'}</Badge>
       <p className="text-sm leading-relaxed">{report.summary}</p>
 
       {hypotheses.length > 0 && (
         <div className="space-y-2">
           <p className="text-xs font-medium text-muted-foreground">
-            Evidence-backed hypotheses
+            Hypotheses for review · scores are heuristics, not probabilities
           </p>
           <div className="divide-y divide-border/60 rounded-xl border border-border/60">
             {hypotheses.map((h, i) => (
@@ -97,6 +97,7 @@ export function ComplianceReportView({ result }: { result: ComplianceResult }) {
   const atRisk = result?.at_risk_assets ?? []
   return (
     <div className="space-y-4">
+      <Badge variant="outline">{narrative?.generation_mode === 'llm' ? 'Model summary · record-based checks' : narrative?.generation_mode === 'manual_evidence' ? 'Model unavailable · record-based checks' : narrative?.generation_mode === 'no_evidence' ? 'No linked rule evidence' : 'Stored summary · generation mode unrecorded'}</Badge>
       <div className="flex items-center gap-2">
         <StatusDot tone={posture.tone} />
         <span className="text-sm font-semibold">{posture.label}</span>
@@ -108,7 +109,7 @@ export function ComplianceReportView({ result }: { result: ComplianceResult }) {
           At-risk assets · computed from records ({atRisk.length})
         </p>
         {atRisk.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nothing at risk in this scope.</p>
+          <p className="text-sm text-muted-foreground">{result.assessed_rule_links ? 'No unmet linked obligations found in these records. This does not certify compliance.' : 'No recorded obligations were assessed; compliance is unknown.'}</p>
         ) : (
           <ul className="space-y-1.5">
             {atRisk.map((a, i) => (

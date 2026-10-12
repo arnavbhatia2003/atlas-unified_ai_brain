@@ -621,12 +621,18 @@ async def hybrid_search(
     settings = get_settings()
 
     literal = None
+    retrieval_warnings = []
+    if not settings.embeddings_enabled:
+        retrieval_warnings.append("Dense retrieval and reranking disabled; keyword retrieval only")
     if settings.embeddings_enabled:
         try:
             vec = await asyncio.to_thread(get_embedding_client().embed_query, query)
             literal = _vector_literal(vec)
-        except Exception:
+        except Exception as exc:
             literal = None
+            retrieval_warnings.append(f"Query embedding unavailable ({type(exc).__name__})")
+        if literal is None and not retrieval_warnings:
+            retrieval_warnings.append("Query embedding unavailable; keyword retrieval only")
 
     # Retriever 1 — dense vector over source records.
     vec_rows: list[Any] = []
@@ -682,6 +688,7 @@ async def hybrid_search(
     # precision (retrieve-broad / rerank-precise). Falls back to RRF order.
     pool = [rid for rid, _s in sorted(fused.items(), key=lambda kv: kv[1], reverse=True)][:15]
     final_ids = pool[:k]
+    reranker_used = False
     if settings.embeddings_enabled and len(pool) > 1:
         try:
             from langchain_core.documents import Document
@@ -703,8 +710,9 @@ async def hybrid_search(
             rr_ids = [d.metadata["rid"] for d in reranked if d.metadata.get("rid")]
             if rr_ids:
                 final_ids = rr_ids[:k]
-        except Exception:
-            pass  # reranker unavailable → keep the fused order
+                reranker_used = True
+        except Exception as exc:
+            retrieval_warnings.append(f"Reranker unavailable ({type(exc).__name__}); retaining fused ranking")
 
     out: list[RetrievedRecord] = []
     for rid in final_ids:
@@ -714,7 +722,9 @@ async def hybrid_search(
                 citation=r["record_id"], unified_id=r["unified_id"],
                 system=r["system"], text=r["semantic_text"] or "",
                 similarity=round(sim_by_id.get(rid, 0.0), 4),
-                raw=_loads(r["raw_json"]),
+                raw={**_loads(r["raw_json"]), "retrieval_method": "hybrid_rrf",
+                     "vector_search_used": literal is not None, "reranker_used": reranker_used,
+                     "retrieval_warnings": retrieval_warnings},
             )
         )
     # Append the single most relevant OKF bundle as consolidated context.
