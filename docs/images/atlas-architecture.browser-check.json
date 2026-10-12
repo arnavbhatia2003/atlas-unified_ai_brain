@@ -6,11 +6,11 @@
   "status": "pass",
   "visualReview": "not-requested",
   "provenance": "current",
-  "deliveryReceiptId": "e8e0037a-060e-4793-998e-6f2eb7d992c0",
+  "deliveryReceiptId": "abf1beab-3ae7-4ec1-b891-6311a94594ff",
   "artifact": {
     "path": "C:\\Users\\there\\Downloads\\atlas\\docs\\atlas-architecture.html",
-    "sha256": "269a8c4cbcba6ea61fc0f5ba37fb22d788eaf8bb1726e887bb010adc119ca4e9",
-    "bytes": 763001
+    "sha256": "901e39cf994734bf15373005116e0f878657189113606f8dfaae30f04063bfc9",
+    "bytes": 763595
   },
   "state": {
     "detail": "read",

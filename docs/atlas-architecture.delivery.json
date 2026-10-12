@@ -1,17 +1,17 @@
 {
   "schemaVersion": 1,
-  "receiptId": "e8e0037a-060e-4793-998e-6f2eb7d992c0",
+  "receiptId": "abf1beab-3ae7-4ec1-b891-6311a94594ff",
   "status": "current",
   "command": "deliver",
   "type": "architecture",
   "input": "C:\\Users\\there\\Downloads\\atlas\\docs\\atlas-architecture.json",
   "output": "C:\\Users\\there\\Downloads\\atlas\\docs\\atlas-architecture.html",
   "specification": {
-    "sha256": "f1816209e6b27275bdc6cab1dcde11eaf4174d384f6eaa8bd64e1a8682ee5247",
-    "bytes": 7286
+    "sha256": "4cf218d649c4a242b8638389d3566d994d4d0cba7d8ed50017a339e096129722",
+    "bytes": 7667
   },
   "artifact": {
-    "sha256": "269a8c4cbcba6ea61fc0f5ba37fb22d788eaf8bb1726e887bb010adc119ca4e9",
-    "bytes": 763001
+    "sha256": "901e39cf994734bf15373005116e0f878657189113606f8dfaae30f04063bfc9",
+    "bytes": 763595
   }
 }

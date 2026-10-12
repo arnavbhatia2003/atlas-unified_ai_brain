@@ -6,11 +6,11 @@
   "status": "pass",
   "visualReview": "pending",
   "provenance": "current",
-  "deliveryReceiptId": "e8e0037a-060e-4793-998e-6f2eb7d992c0",
+  "deliveryReceiptId": "abf1beab-3ae7-4ec1-b891-6311a94594ff",
   "artifact": {
     "path": "C:\\Users\\there\\Downloads\\atlas\\docs\\atlas-architecture.html",
-    "sha256": "269a8c4cbcba6ea61fc0f5ba37fb22d788eaf8bb1726e887bb010adc119ca4e9",
-    "bytes": 763001
+    "sha256": "901e39cf994734bf15373005116e0f878657189113606f8dfaae30f04063bfc9",
+    "bytes": 763595
   },
   "state": {
     "detail": "read",
@@ -938,23 +938,23 @@
         "file": "atlas-architecture.visual-check.html"
       },
       {
-        "sha256": "4fb0d35870c0cdce910598d1e7018aa7891f0bbdab217602102f6554aa026679",
-        "bytes": 93303,
+        "sha256": "954ed8e2837e5079d2754fe7523d69aaa8bedd21840b958fa74d693e2eab13af",
+        "bytes": 93843,
         "file": "atlas-architecture.visual-check.1440x900.light.png"
       },
       {
-        "sha256": "3c4e5d1459736739101c196ef6b0944388cc5df8af2e6a3e7d1894a4de2e24d7",
-        "bytes": 103162,
+        "sha256": "d43dcf49413b71dd8334a8d9048b0161e1b9a57c086d76c59a418f21c23d0999",
+        "bytes": 103598,
         "file": "atlas-architecture.visual-check.1440x900.dark.png"
       },
       {
-        "sha256": "6cbd61b34b2039ade1d7399c593c579707bed549bc4f53b799d87078987977ff",
-        "bytes": 141264,
+        "sha256": "5bab18e1545522546b694ec12b67491eff2aff53e57f626c1aacda95997a4866",
+        "bytes": 141985,
         "file": "atlas-architecture.visual-check.2048x1320.light.png"
       },
       {
-        "sha256": "76eb94cea5095ff65827299a34b0cdce5404b5131e86621f8dceef0e8e5dddd2",
-        "bytes": 155621,
+        "sha256": "387908916e5f2f8a070556c828711f8a6fcb87f5a2e12fd327eda50cf2590cfd",
+        "bytes": 156165,
         "file": "atlas-architecture.visual-check.2048x1320.dark.png"
       }
     ]

@@ -7,7 +7,7 @@
     "quality_profile": "showcase",
     "repository": {
       "url": "https://github.com/arnavbhatia2003/atlas-unified_ai_brain.git",
-      "revision": "39edcec919a4418147fe773a573ae1290442f6fe",
+      "revision": "1b7ce184b55bb2486de0b50edf4e2332b0a09663",
       "provider": "github",
       "link_mode": "web"
     },
@@ -54,9 +54,9 @@
       "sources": [
         {
           "path": "frontend/src/lib/api.ts",
-          "line": 162,
+          "line": 163,
           "label": "API and SSE client",
-          "end_line": 174
+          "end_line": 175
         }
       ]
     },
@@ -87,7 +87,7 @@
         },
         {
           "path": "backend/app/workflows/retrieval.py",
-          "line": 742,
+          "line": 752,
           "label": "Scoped passage retrieval"
         }
       ]
@@ -96,7 +96,7 @@
       "id": "db",
       "type": "database",
       "label": "Postgres + pgvector",
-      "sublabel": "Originals, index, revisions",
+      "sublabel": "Originals, passages, OKF, history",
       "pos": [
         350,
         350
@@ -115,6 +115,11 @@
           "path": "backend/app/services/document_index.py",
           "line": 1,
           "label": "GIN-indexed PDF passages"
+        },
+        {
+          "path": "backend/app/db/schema.sql",
+          "line": 142,
+          "label": "Embedded OKF dossiers"
         }
       ]
     },
@@ -122,7 +127,7 @@
       "id": "documents",
       "type": "backend",
       "label": "PDF processing",
-      "sublabel": "Native + isolated Docling",
+      "sublabel": "Native + bounded CPU Docling",
       "pos": [
         20,
         510
@@ -144,7 +149,7 @@
         },
         {
           "path": "backend/app/services/documents.py",
-          "line": 464,
+          "line": 480,
           "label": "Isolated OCR worker"
         }
       ]
@@ -172,6 +177,11 @@
           "path": "backend/app/engine/resolution/engine.py",
           "line": 91,
           "label": "Cluster-wide identity guards"
+        },
+        {
+          "path": "backend/app/workflows/retrieval.py",
+          "line": 521,
+          "label": "Materialize cited OKF dossiers"
         }
       ]
     },
@@ -290,7 +300,8 @@
       "items": [
         "Original saved before OCR or optional extraction",
         "Small manuals: whole context; large PDFs: 12 ranked passages",
-        "Constrained JSON and verbatim quote validation"
+        "Constrained JSON and verbatim quote validation",
+        "Asset RAG: dense + keyword fusion, reranking, cited OKF context"
       ]
     },
     {
