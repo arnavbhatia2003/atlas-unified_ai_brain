@@ -55,3 +55,4 @@ Thumbs.db
 .firecrawl/
 .logs/
 backend/.venv-docling/
+evaluation-results/
