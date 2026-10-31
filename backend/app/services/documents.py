@@ -45,7 +45,7 @@ def _docling_enabled() -> bool:
         "off",
     )
 
-_converters: dict[bool, Any] = {}
+_converters: dict[tuple[bool, int], Any] = {}
 PARSER_VERSION = "atlas-evidence-3"
 _BAD_GLYPHS = re.compile(r"[\ue000-\uf8ff\ufffd\ufffe]")
 
@@ -100,10 +100,24 @@ def sha256_of(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def docling_threads(value: int | str | None = None) -> int:
+    """Keep inference within the CPU count reported for this process."""
+    available = os.process_cpu_count() or 1
+    try:
+        threads = int(os.getenv("DOCLING_NUM_THREADS", "2") if value is None else value)
+    except (TypeError, ValueError):
+        raise ValueError("Inference threads must be a whole number") from None
+    if not 1 <= threads <= available:
+        raise ValueError(f"Inference threads must be between 1 and {available} available CPUs")
+    return threads
+
+
 def _get_converter(ocr: bool, *, force_ocr: bool = False) -> Any:
-    """Cache CPU converters by OCR mode; retain the measured TableFormer FAST baseline."""
-    if ocr in _converters:
-        converter = _converters[ocr]
+    """Cache CPU converters by OCR mode and threads; retain the FAST baseline."""
+    threads = docling_threads()
+    key = (ocr, threads)
+    if key in _converters:
+        converter = _converters[key]
         _set_ocr_mode(converter, force_ocr)
         return converter
     from docling.datamodel.base_models import InputFormat
@@ -116,8 +130,8 @@ def _get_converter(ocr: bool, *, force_ocr: bool = False) -> Any:
     from docling.document_converter import DocumentConverter, PdfFormatOption
 
     opts = PdfPipelineOptions()
-    # Bound the actual threaded pipeline, including queues, on the user's laptop.
-    opts.accelerator_options = AcceleratorOptions(device=AcceleratorDevice.CPU, num_threads=2)
+    # Change inference threads independently of the retained page batches and queues.
+    opts.accelerator_options = AcceleratorOptions(device=AcceleratorDevice.CPU, num_threads=threads)
     opts.ocr_batch_size = opts.layout_batch_size = opts.table_batch_size = 1
     opts.queue_max_size = 2
     opts.do_ocr = ocr
@@ -143,7 +157,7 @@ def _get_converter(ocr: bool, *, force_ocr: bool = False) -> Any:
     )
     converter.initialize_pipeline(InputFormat.PDF)
     _set_ocr_mode(converter, force_ocr)
-    _converters[ocr] = converter
+    _converters[key] = converter
     return converter
 
 
@@ -496,7 +510,7 @@ def docling_status() -> dict[str, Any]:
     )
     return {"enabled": enabled, "ok": alive and _ocr_ready, "state": state,
             "pid": _ocr_worker.pid if alive else None, "device": "cpu",
-            "threads": 2, "stage_batch_pages": 1, "queue_max_size": 2,
+            "threads": docling_threads(), "stage_batch_pages": 1, "queue_max_size": 2,
             "ocr": "RapidOCR / ONNX Runtime", "error_type": _ocr_error}
 
 

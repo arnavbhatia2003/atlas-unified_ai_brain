@@ -14,6 +14,14 @@ import time
 
 import psutil
 
+from app.services.documents import docling_threads
+
+
+def worker_environment(threads):
+    threads = str(docling_threads(threads))
+    return {**os.environ, "HF_HUB_DISABLE_IMPLICIT_TOKEN":"1", "OMP_NUM_THREADS":threads,
+            "DOCLING_NUM_THREADS":threads, "TOKENIZERS_PARALLELISM":"false"}
+
 
 def pages_arg(value):
     pages = [int(item) for item in value.split(",")]
@@ -70,10 +78,15 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("source", type=Path)
     parser.add_argument("--pages", type=pages_arg, required=True)
+    parser.add_argument("--threads", type=int, default=2, help="Inference threads; at most the reported process CPU count")
     parser.add_argument("--output", type=Path, required=True, help="New output directory; never overwritten")
     args = parser.parse_args()
     if os.environ.get("CODESPACES") != "true" or sys.platform != "linux":
         parser.error("Run this job in the student Codespace after verifying its free allowance")
+    try:
+        env = worker_environment(args.threads)
+    except ValueError as exc:
+        parser.error(str(exc))
     if not args.source.is_file() or args.source.stat().st_size > 50*1024**2:
         parser.error("Source must be one PDF of at most 50 MiB")
     if psutil.virtual_memory().available < 2*1024**3:
@@ -94,12 +107,12 @@ def main():
         shutil.copyfile(args.source, source)
         original_hash = sha256(source)
         output = source.parent/"document.json"
-        env = {**os.environ, "HF_HUB_DISABLE_IMPLICIT_TOKEN":"1", "OMP_NUM_THREADS":"2", "TOKENIZERS_PARALLELISM":"false"}
         with (source.parent/"worker.log").open("wb") as log:
             process = subprocess.Popen([sys.executable, "-m", "app.services.document_worker", str(source), str(output), json.dumps(args.pages)],
                 cwd=Path(__file__).resolve().parent, env=env, stdout=log, stderr=subprocess.STDOUT)
             report = supervise(process)
-        report.update(source_sha256=original_hash, physical_pages=args.pages, output_present=output.is_file())
+        report.update(source_sha256=original_hash, physical_pages=args.pages, output_present=output.is_file(),
+                      inference_threads=args.threads, available_cpus=os.process_cpu_count() or 1)
         if sha256(source) != original_hash:
             report["failure"] = "source_changed"
         if output.is_file():
