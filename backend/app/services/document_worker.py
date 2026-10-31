@@ -1,5 +1,6 @@
 """Isolated Docling worker: a native parser/OCR crash must not kill the API."""
 import json
+import hashlib
 import sys
 import tempfile
 from pathlib import Path
@@ -8,6 +9,52 @@ from itertools import groupby
 from statistics import median
 import pypdfium2 as pdfium
 from .documents import _get_converter, _extract_tables, _extract_chunks_and_outline, _word_ocr, DocChunk
+from .docling_options import configured_options
+
+
+def source_evidence(original, source, output, selected, options):
+    """Checkpoint native text and optional previews before model conversion."""
+    pages, images, warnings = [], [], []
+    directory = Path(output).parent
+    for number in selected:
+        page = original[number-1]
+        try:
+            textpage = page.get_textpage()
+            try:
+                text = textpage.get_text_range()
+            finally:
+                textpage.close()
+            pages.append({"page":number,"text":text})
+            if options.export_page_images:
+                width, height = page.get_size()
+                if width*height*options.page_image_scale**2 > 20_000_000:
+                    warnings.append(f"Page {number}: preview exceeds 20 megapixels; original retained")
+                    continue
+                path = directory/"pages"/f"p{number:04d}.png"
+                path.parent.mkdir(exist_ok=True)
+                bitmap = page.render(scale=options.page_image_scale)
+                try:
+                    image = bitmap.to_pil()
+                    try:
+                        image.save(path, "PNG")
+                        size = image.size
+                    finally:
+                        image.close()
+                finally:
+                    bitmap.close()
+                with path.open("rb") as stream:
+                    digest = hashlib.file_digest(stream, "sha256").hexdigest()
+                images.append({"page":number,"path":path.relative_to(directory).as_posix(),"sha256":digest,
+                               "width":size[0],"height":size[1],"scale":options.page_image_scale})
+        except Exception as exc:
+            warnings.append(f"Page {number}: source export failed ({type(exc).__name__}); original retained")
+        finally:
+            page.close()
+    with Path(source).open("rb") as stream:
+        digest = hashlib.file_digest(stream, "sha256").hexdigest()
+    evidence = {"source_sha256":digest,"native_pages":pages,"page_images":images,"warnings":warnings}
+    (directory/"source-evidence.json").write_text(json.dumps(evidence,ensure_ascii=False),encoding="utf-8")
+    return evidence
 
 
 def _page_batches(selected, force_ocr_pages):
@@ -77,8 +124,11 @@ def convert_pages(source, output, selected, force_ocr_pages=()):
     documents = []
     original = pdfium.PdfDocument(source)
     try:
+        options = configured_options()
+        evidence = source_evidence(original, source, output, selected, options)
         # Process bounded batches while reusing the warmed converter/models.
         for page_numbers, force_ocr in _page_batches(selected, force_ocr_pages):
+            force_ocr = force_ocr or options.ocr_mode == "full"
             converter = _get_converter(True, force_ocr=force_ocr)
             subset = pdfium.PdfDocument.new()
             subset.import_pages(original, pages=[p-1 for p in page_numbers])
@@ -136,7 +186,8 @@ def convert_pages(source, output, selected, force_ocr_pages=()):
                 path.unlink(missing_ok=True)
     finally:
         original.close()
-    Path(output).write_text(json.dumps({"chunks":chunks,"tables":tables,"sections":sections,"documents":documents}),encoding="utf-8")
+    Path(output).write_text(json.dumps({"chunks":chunks,"tables":tables,"sections":sections,"documents":documents,
+                                      "source_evidence":evidence,"pipeline_options":options.model_dump()}),encoding="utf-8")
 
 def main():
     if sys.argv[1:] != ["--server"]:

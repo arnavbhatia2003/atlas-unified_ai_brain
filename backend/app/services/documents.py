@@ -15,6 +15,8 @@ import re
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
+from .docling_options import DoclingOptions, configured_options, docling_threads
+
 # Docling fetches its layout/table models from the HuggingFace Hub, which tries
 # to symlink into the cache. On Windows without Developer Mode/admin that raises
 # WinError 1314; disabling symlinks makes HF copy files instead. Must be set
@@ -45,7 +47,7 @@ def _docling_enabled() -> bool:
         "off",
     )
 
-_converters: dict[tuple[bool, int], Any] = {}
+_converters: dict[tuple[bool, DoclingOptions], Any] = {}
 PARSER_VERSION = "atlas-evidence-3"
 _BAD_GLYPHS = re.compile(r"[\ue000-\uf8ff\ufffd\ufffe]")
 
@@ -100,22 +102,11 @@ def sha256_of(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def docling_threads(value: int | str | None = None) -> int:
-    """Keep inference within the CPU count reported for this process."""
-    available = os.process_cpu_count() or 1
-    try:
-        threads = int(os.getenv("DOCLING_NUM_THREADS", "2") if value is None else value)
-    except (TypeError, ValueError):
-        raise ValueError("Inference threads must be a whole number") from None
-    if not 1 <= threads <= available:
-        raise ValueError(f"Inference threads must be between 1 and {available} available CPUs")
-    return threads
-
-
 def _get_converter(ocr: bool, *, force_ocr: bool = False) -> Any:
-    """Cache CPU converters by OCR mode and threads; retain the FAST baseline."""
-    threads = docling_threads()
-    key = (ocr, threads)
+    """Cache by the full configuration; retain the measured default pipeline."""
+    settings = configured_options()
+    force_ocr = force_ocr or settings.ocr_mode == "full"
+    key = (ocr, settings)
     if key in _converters:
         converter = _converters[key]
         _set_ocr_mode(converter, force_ocr)
@@ -131,14 +122,16 @@ def _get_converter(ocr: bool, *, force_ocr: bool = False) -> Any:
 
     opts = PdfPipelineOptions()
     # Change inference threads independently of the retained page batches and queues.
-    opts.accelerator_options = AcceleratorOptions(device=AcceleratorDevice.CPU, num_threads=threads)
-    opts.ocr_batch_size = opts.layout_batch_size = opts.table_batch_size = 1
-    opts.queue_max_size = 2
+    opts.accelerator_options = AcceleratorOptions(device=AcceleratorDevice.CPU, num_threads=settings.threads)
+    opts.ocr_batch_size = settings.ocr_batch_size
+    opts.layout_batch_size = settings.layout_batch_size
+    opts.table_batch_size = settings.table_batch_size
+    opts.queue_max_size = settings.queue_max_size
     opts.do_ocr = ocr
     opts.ocr_options = RapidOcrOptions(lang=["english"], backend="onnxruntime")
-    opts.document_timeout = 180
+    opts.document_timeout = settings.document_timeout_seconds
     opts.do_table_structure = True
-    # We never need rendered page/figure images — skip them to save memory.
+    # Page previews are exported separately; do not embed images in custody JSON.
     for attr in ("generate_page_images", "generate_picture_images"):
         try:
             setattr(opts, attr, False)
@@ -148,10 +141,7 @@ def _get_converter(ocr: bool, *, force_ocr: bool = False) -> Any:
         opts.images_scale = 1.0
     except Exception:
         pass
-    try:
-        opts.table_structure_options.mode = TableFormerMode.FAST
-    except Exception:
-        pass
+    opts.table_structure_options.mode = TableFormerMode.ACCURATE if settings.table_mode == "accurate" else TableFormerMode.FAST
     converter = DocumentConverter(
         format_options={InputFormat.PDF: PdfFormatOption(pipeline_options=opts)}
     )
@@ -508,9 +498,11 @@ def docling_status() -> dict[str, Any]:
         "ready" if alive and _ocr_ready else
         "warming" if alive else "failed" if _ocr_error else "stopped"
     )
+    settings = configured_options()
     return {"enabled": enabled, "ok": alive and _ocr_ready, "state": state,
             "pid": _ocr_worker.pid if alive else None, "device": "cpu",
-            "threads": docling_threads(), "stage_batch_pages": 1, "queue_max_size": 2,
+            "threads": settings.threads, "stage_batch_pages": max(settings.ocr_batch_size, settings.layout_batch_size, settings.table_batch_size), "queue_max_size": settings.queue_max_size,
+            "pipeline_options": settings.model_dump(),
             "ocr": "RapidOCR / ONNX Runtime", "error_type": _ocr_error}
 
 

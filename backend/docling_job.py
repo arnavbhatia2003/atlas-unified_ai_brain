@@ -14,13 +14,15 @@ import time
 
 import psutil
 
-from app.services.documents import docling_threads
+from app.services.docling_options import DoclingOptions, docling_threads, load_options
+from app.services.document_validation import Expectations, inspect_result, read_json
 
 
-def worker_environment(threads):
-    threads = str(docling_threads(threads))
-    return {**os.environ, "HF_HUB_DISABLE_IMPLICIT_TOKEN":"1", "OMP_NUM_THREADS":threads,
-            "DOCLING_NUM_THREADS":threads, "TOKENIZERS_PARALLELISM":"false"}
+def worker_environment(threads, options=None):
+    options = DoclingOptions.model_validate({**(options or DoclingOptions()).model_dump(), "threads":docling_threads(threads)})
+    return {**os.environ, "HF_HUB_DISABLE_IMPLICIT_TOKEN":"1", "OMP_NUM_THREADS":str(options.threads),
+            "DOCLING_NUM_THREADS":str(options.threads), "ATLAS_DOCLING_OPTIONS":options.model_dump_json(),
+            "TOKENIZERS_PARALLELISM":"false", "LANGSMITH_TRACING":"false", "LANGCHAIN_TRACING_V2":"false"}
 
 
 def pages_arg(value):
@@ -75,17 +77,28 @@ def supervise(process, *, seconds=900, memory_mib=4096):
 
 
 def main():
+    started = time.monotonic()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("source", type=Path)
     parser.add_argument("--pages", type=pages_arg, required=True)
-    parser.add_argument("--threads", type=int, default=2, help="Inference threads; at most the reported process CPU count")
+    parser.add_argument("--config", type=Path, default=Path(__file__).resolve().parents[1]/"deploy/docling.json")
+    parser.add_argument("--threads", type=int, help="Override profile inference threads; at most the reported process CPU count")
+    parser.add_argument("--batch-size", type=int, help="Override all three stage batch sizes (1–8)")
+    parser.add_argument("--expectations", type=Path, help="Source-hash-bound text and table-cell labels")
     parser.add_argument("--output", type=Path, required=True, help="New output directory; never overwritten")
     args = parser.parse_args()
     if os.environ.get("CODESPACES") != "true" or sys.platform != "linux":
         parser.error("Run this job in the student Codespace after verifying its free allowance")
     try:
-        env = worker_environment(args.threads)
-    except ValueError as exc:
+        values = load_options(args.config).model_dump()
+        if args.threads is not None:
+            values["threads"] = args.threads
+        if args.batch_size is not None:
+            values.update({key:args.batch_size for key in ("ocr_batch_size","layout_batch_size","table_batch_size")})
+        options = DoclingOptions.model_validate(values)
+        env = worker_environment(options.threads, options)
+        expected = Expectations.model_validate(read_json(args.expectations,1024**2)) if args.expectations else None
+    except (OSError, ValueError) as exc:
         parser.error(str(exc))
     if not args.source.is_file() or args.source.stat().st_size > 50*1024**2:
         parser.error("Source must be one PDF of at most 50 MiB")
@@ -107,26 +120,43 @@ def main():
         shutil.copyfile(args.source, source)
         original_hash = sha256(source)
         output = source.parent/"document.json"
+        (source.parent/"config.json").write_text(options.model_dump_json(indent=2),encoding="utf-8")
         with (source.parent/"worker.log").open("wb") as log:
             process = subprocess.Popen([sys.executable, "-m", "app.services.document_worker", str(source), str(output), json.dumps(args.pages)],
                 cwd=Path(__file__).resolve().parent, env=env, stdout=log, stderr=subprocess.STDOUT)
             report = supervise(process)
         report.update(source_sha256=original_hash, physical_pages=args.pages, output_present=output.is_file(),
-                      inference_threads=args.threads, available_cpus=os.process_cpu_count() or 1)
+                      inference_threads=options.threads, available_cpus=os.process_cpu_count() or 1,
+                      pipeline_options=options.model_dump(), config_sha256=sha256(args.config),
+                      expectations_sha256=sha256(args.expectations) if args.expectations else None)
+        if report["exit_code"] or not output.is_file():
+            report["failure"] = report["failure"] or "worker_failed"
         if sha256(source) != original_hash:
             report["failure"] = "source_changed"
         if output.is_file():
             try:
-                data = json.loads(output.read_text(encoding="utf-8"))
+                data = read_json(output)
                 report["failure"] = report["failure"] or data.get("error_type")
+                if data.get("pipeline_options") != options.model_dump():
+                    raise ValueError("Worker configuration does not match the requested profile")
                 report["statuses"] = [item["status"] for item in data.get("documents", [])]
                 completed = sorted(page for item in data.get("documents", []) if item["status"] == "success" for page in item["physical_pages"])
                 if completed != args.pages or not data.get("chunks"):
                     report["failure"] = report["failure"] or "incomplete_pages"
-            except (ValueError, KeyError, TypeError):
+                evidence = read_json(source.parent/"source-evidence.json")
+                if evidence.get("source_sha256") != original_hash:
+                    raise ValueError("Source checkpoint hash mismatch")
+                validation = inspect_result(data,evidence,args.pages,source.parent,expected)
+                (source.parent/"validation.json").write_text(json.dumps(validation,indent=2,ensure_ascii=False),encoding="utf-8")
+                report["validation"] = {"status":validation["status"],"errors":len(validation["errors"]),
+                                        "warnings":len(validation["warnings"]),"human_review_required":True}
+                if validation["errors"]:
+                    report["failure"] = report["failure"] or "validation_failed"
+            except (OSError, ValueError, KeyError, TypeError, AttributeError):
                 report["failure"] = report["failure"] or "invalid_worker_output"
         from importlib.metadata import version
-        report["versions"] = {name:version(name) for name in ("docling", "docling-parse", "torch", "rapidocr")}
+        report["versions"] = {name:version(name) for name in ("docling", "docling-core", "docling-parse", "pypdfium2", "torch", "rapidocr", "onnxruntime")}
+        report["total_seconds"] = round(time.monotonic()-started,3)
         (source.parent/"manifest.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
         print(json.dumps(report))
         return int(bool(report["failure"] or report["exit_code"] or not output.is_file()))

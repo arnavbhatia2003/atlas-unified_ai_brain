@@ -1,0 +1,20 @@
+{
+  "source_url": "https://www.ti.com/lit/ds/symlink/lm35.pdf",
+  "source_sha256": "673b1c075b8f5a0653f77906c897ea5aec41a1dec02514770587100587c05eb9",
+  "label_origin": "Agent-transcribed development labels from visual review of physical page 4, frozen before remote comparison. Zero-based table, row and column positions include header rows and merged label columns. Strict source glyphs; differences require review. Not independent teacher labels or full-page acceptance.",
+  "text_spans": [
+    {"page": 4, "text": "6.1 Absolute Maximum Ratings"},
+    {"page": 4, "text": "6.3 Recommended Operating Conditions"},
+    {"page": 4, "text": "Absolute Maximum Ratings indicate limits beyond which damage to the device may occur."}
+  ],
+  "table_cells": [
+    {"page": 4, "table_index": 0, "row": 1, "column": 2, "text": "–0.2"},
+    {"page": 4, "table_index": 0, "row": 1, "column": 3, "text": "35"},
+    {"page": 4, "table_index": 0, "row": 1, "column": 4, "text": "V"},
+    {"page": 4, "table_index": 0, "row": 5, "column": 2, "text": "–60"},
+    {"page": 4, "table_index": 0, "row": 6, "column": 2, "text": "–65"},
+    {"page": 4, "table_index": 2, "row": 4, "column": 2, "text": "4"},
+    {"page": 4, "table_index": 2, "row": 4, "column": 3, "text": "30"},
+    {"page": 4, "table_index": 2, "row": 4, "column": 4, "text": "V"}
+  ]
+}
