@@ -54,3 +54,4 @@ Thumbs.db
 # Local research cache and development logs
 .firecrawl/
 .logs/
+backend/.venv-docling/
