@@ -1,7 +1,7 @@
 """PDF parsing with original-byte custody and page provenance.
 
-Selectable text uses PDFium; image-containing pages use a warmed, isolated
-Docling/RapidOCR worker. Call parse_pdf asynchronously. The legacy synchronous
+Selectable text is saved with PDFium before every page receives isolated
+Docling layout/table processing and required OCR. Call parse_pdf asynchronously. The legacy synchronous
 parse_pdf_bytes entry point remains available for native-text/demo callers.
 """
 
@@ -12,7 +12,7 @@ import base64
 import hashlib
 import os
 import re
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from typing import Any
 
 # Docling fetches its layout/table models from the HuggingFace Hub, which tries
@@ -45,7 +45,9 @@ def _docling_enabled() -> bool:
         "off",
     )
 
-_converter: Any = None  # lazy Docling DocumentConverter singleton
+_converters: dict[bool, Any] = {}
+PARSER_VERSION = "atlas-evidence-3"
+_BAD_GLYPHS = re.compile(r"[\ue000-\uf8ff\ufffd\ufffe]")
 
 
 @dataclass
@@ -54,6 +56,9 @@ class DocTable:
     section: str
     columns: list[str]
     rows: list[dict[str, Any]]
+    provenance: list[dict[str, Any]] = field(default_factory=list)
+    cells: list[dict[str, Any]] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -62,6 +67,8 @@ class DocChunk:
     text: str
     page: int | None
     section: str  # heading path, e.g. "Findings > Root cause"
+    kind: str = "text"
+    provenance: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
@@ -93,11 +100,12 @@ def sha256_of(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def _get_converter(ocr: bool) -> Any:
-    """Build (once) a Docling converter. OCR off by default; TableFormer FAST."""
-    global _converter
-    if _converter is not None:
-        return _converter
+def _get_converter(ocr: bool, *, force_ocr: bool = False) -> Any:
+    """Cache CPU converters by OCR mode; retain the measured TableFormer FAST baseline."""
+    if ocr in _converters:
+        converter = _converters[ocr]
+        _set_ocr_mode(converter, force_ocr)
+        return converter
     from docling.datamodel.base_models import InputFormat
     from docling.datamodel.pipeline_options import (
         PdfPipelineOptions,
@@ -130,10 +138,40 @@ def _get_converter(ocr: bool) -> Any:
         opts.table_structure_options.mode = TableFormerMode.FAST
     except Exception:
         pass
-    _converter = DocumentConverter(
+    converter = DocumentConverter(
         format_options={InputFormat.PDF: PdfFormatOption(pipeline_options=opts)}
     )
-    return _converter
+    converter.initialize_pipeline(InputFormat.PDF)
+    _set_ocr_mode(converter, force_ocr)
+    _converters[ocr] = converter
+    return converter
+
+
+def _set_ocr_mode(converter: Any, force_ocr: bool) -> None:
+    # Worker requests are serial. Copy runtime options so the converter's cache hash stays stable.
+    from functools import partial
+    for pipeline in converter.initialized_pipelines.values():
+        pipeline.ocr_model.options = pipeline.ocr_model.options.model_copy(update={"force_full_page_ocr": force_ocr})
+        if getattr(pipeline.ocr_model, "enabled", False) and not getattr(pipeline, "_atlas_word_ocr", False):
+            pipeline.ocr_model.reader = partial(_word_ocr, pipeline.ocr_model.reader)
+            pipeline._atlas_word_ocr = True
+
+
+def _word_ocr(reader, image, **kwargs):
+    """Give TableFormer word boxes so one detected line cannot merge adjacent columns."""
+    import numpy as np
+    result = reader(image, return_word_box=True, **kwargs)
+    if result.boxes is None or len(result.word_results or ()) != len(result.boxes):
+        return result
+    words = []
+    for i, line in enumerate(result.word_results):
+        valid = [w for w in line if isinstance(w, tuple) and len(w) == 3 and w[2] is not None]
+        words.extend(valid or [(result.txts[i], result.scores[i], result.boxes[i])])
+    if words:
+        result.boxes = np.asarray([w[2] for w in words])
+        result.txts = tuple(w[0] for w in words)
+        result.scores = tuple(w[1] for w in words)
+    return result
 
 
 def _page_of(item: Any) -> int | None:
@@ -145,20 +183,32 @@ def _page_of(item: Any) -> int | None:
     return None
 
 
+def _provenance(item: Any) -> list[dict[str, Any]]:
+    out = []
+    for p in getattr(item, "prov", []) or []:
+        value = p.model_dump(mode="json") if hasattr(p, "model_dump") else {"page_no": p.page_no}
+        value["item"] = str(getattr(item, "self_ref", ""))
+        out.append(value)
+    return out
+
+
 def _extract_tables(doc: Any) -> list[DocTable]:
     tables: list[DocTable] = []
     for t in getattr(doc, "tables", []) or []:
         cols: list[str] = []
         rows: list[dict[str, Any]] = []
         try:
-            df = t.export_to_dataframe()
+            df = t.export_to_dataframe(doc=doc)
             cols = [str(c) for c in df.columns]
-            for rec in df.to_dict(orient="records"):
-                rows.append({str(k): ("" if v is None else str(v)) for k, v in rec.items()})
+            # A dict keyed by repeated/blank headers silently loses cells. Keep their ordinal identity.
+            keys = [c if c.strip() and cols.count(c) == 1 else f"{c or 'Unlabelled'} [column {i+1}]" for i, c in enumerate(cols)]
+            for values in df.itertuples(index=False, name=None):
+                rows.append({k: ("" if v is None else str(v)) for k, v in zip(keys, values)})
         except Exception:
             continue
         if rows:
-            tables.append(DocTable(page=_page_of(t), section="", columns=cols, rows=rows))
+            cells = [c.model_dump(mode="json") for c in t.data.table_cells] if getattr(t, "data", None) else []
+            tables.append(DocTable(page=_page_of(t), section="", columns=cols, rows=rows, provenance=_provenance(t), cells=cells))
     return tables
 
 
@@ -173,14 +223,15 @@ def _extract_chunks_and_outline(doc: Any) -> tuple[list[DocChunk], list[str]]:
     heading_stack: list[str] = []
     buf: list[str] = []
     buf_page: int | None = None
+    buf_prov: list[dict[str, Any]] = []
     idx = 0
 
     def section_path() -> str:
         return " > ".join(heading_stack[-3:])
 
     def flush() -> None:
-        nonlocal buf, buf_page, idx
-        text = " ".join(s.strip() for s in buf if s.strip()).strip()
+        nonlocal buf, buf_page, buf_prov, idx
+        text = "\n".join(s.strip() for s in buf if s.strip()).strip()
         buf = []
         if not text:
             buf_page = None
@@ -190,15 +241,16 @@ def _extract_chunks_and_outline(doc: Any) -> tuple[list[DocChunk], list[str]]:
         while start < len(text):
             piece = text[start : start + _CHUNK_CHARS]
             chunks.append(
-                DocChunk(index=idx, text=piece.strip(), page=buf_page, section=section_path())
+                DocChunk(index=idx, text=piece.strip(), page=buf_page, section=section_path(), provenance=list(buf_prov))
             )
             idx += 1
             if start + _CHUNK_CHARS >= len(text):
                 break
             start += _CHUNK_CHARS - _CHUNK_OVERLAP
         buf_page = None
+        buf_prov = []
 
-    texts = getattr(doc, "texts", None)
+    texts = [item for item, _ in doc.iterate_items()] if hasattr(doc, "iterate_items") else getattr(doc, "texts", None)
     if texts:
         for item in texts:
             label = str(getattr(item, "label", "") or "").lower()
@@ -218,12 +270,17 @@ def _extract_chunks_and_outline(doc: Any) -> tuple[list[DocChunk], list[str]]:
                         heading_stack.append(text)
                 if text not in outline:
                     outline.append(text)
+                # Keep headings with their following text, without crossing a physical page.
+                buf = [text]
+                buf_page = _page_of(item)
+                buf_prov = _provenance(item)
             else:
                 if buf and _page_of(item) != buf_page:
                     flush()
                 if buf_page is None:
                     buf_page = _page_of(item)
                 buf.append(text)
+                buf_prov.extend(_provenance(item))
         flush()
 
     return chunks, outline
@@ -277,6 +334,7 @@ def _parse_pdf_textonly(data: bytes, filename: str, *, allow_empty: bool = False
     page_count = 0
     image_pages = []
     empty_pages = []
+    text_quality_pages = []
     idx = 0
     pdf = pdfium.PdfDocument(data)
     try:
@@ -298,12 +356,14 @@ def _parse_pdf_textonly(data: bytes, filename: str, *, allow_empty: bool = False
             if not text:
                 empty_pages.append(pno + 1)
                 continue
+            if _BAD_GLYPHS.search(text):
+                text_quality_pages.append(pno + 1)
             md_parts.append(text)
             start = 0
             while start < len(text):
                 piece = text[start : start + _CHUNK_CHARS]
                 chunks.append(
-                    DocChunk(index=idx, text=piece.strip(), page=pno + 1, section="")
+                    DocChunk(index=idx, text=piece.strip(), page=pno + 1, section="", provenance=[{"page_no": pno+1, "charspan": [start, start+len(piece)], "origin": "native_text"}])
                 )
                 idx += 1
                 if start + _CHUNK_CHARS >= len(text):
@@ -326,7 +386,7 @@ def _parse_pdf_textonly(data: bytes, filename: str, *, allow_empty: bool = False
         tables=[],
         chunks=chunks,
         # shortcut: bounded PDFs live in JSON for byte recovery; move bytes to object storage for larger corpora.
-        raw={"parser": "pypdfium2-text", "pages": page_count, "image_pages": image_pages, "empty_pages": empty_pages, "original_pdf_b64": base64.b64encode(data).decode("ascii")},
+        raw={"parser_version": PARSER_VERSION, "parser": "pypdfium2-text", "pages": page_count, "image_pages": image_pages, "empty_pages": empty_pages, "text_quality_pages": text_quality_pages, "unreadable_pages": empty_pages, "original_pdf_b64": base64.b64encode(data).decode("ascii")},
     )
 
 
@@ -452,12 +512,14 @@ async def close_docling_worker() -> None:
 async def _start_docling_worker() -> None:
     global _ocr_worker, _ocr_ready, _ocr_error
     import sys
+    from pathlib import Path
     if _ocr_worker and _ocr_worker.returncode is None:
         return
     _ocr_ready = False
     _ocr_error = None
     _ocr_worker = await asyncio.create_subprocess_exec(
         sys.executable, "-m", "app.services.document_worker", "--server",
+        cwd=Path(__file__).resolve().parents[2],
         stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL,
     )
     try:
@@ -477,13 +539,13 @@ async def warm_docling_worker() -> None:
             await _start_docling_worker()
 
 
-async def _docling_pages(source: str, output: str, pages: list[int]) -> None:
+async def _docling_pages(source: str, output: str, pages: list[int], *, force_ocr_pages: list[int] | None = None) -> None:
     global _ocr_error
     import json
     async with _ocr_lock:
         try:
             await _start_docling_worker()
-            _ocr_worker.stdin.write((json.dumps({"source":source,"output":output,"pages":pages}) + "\n").encode())
+            _ocr_worker.stdin.write((json.dumps({"source":source,"output":output,"pages":pages,"force_ocr_pages":force_ocr_pages or []}) + "\n").encode())
             await _ocr_worker.stdin.drain()
             done = await asyncio.wait_for(_ocr_worker.stdout.readline(), timeout=300)
             if done.strip() != b"ATLAS_DOCLING_DONE":
@@ -494,23 +556,52 @@ async def _docling_pages(source: str, output: str, pages: list[int]) -> None:
             raise
 
 
+def _source_pdf(data: bytes) -> tuple[bytes, dict[str, Any]]:
+    """Keep source image bytes; convert a validated PNG/JPEG into one OCR page."""
+    if b'%PDF-' in data[:1024]:
+        return data, {}
+    import io
+    from PIL import Image, ImageOps
+    with Image.open(io.BytesIO(data)) as image:
+        if image.format not in {'PNG','JPEG'} or image.width*image.height > 20_000_000:
+            raise ValueError('Only PNG/JPEG images up to 20 megapixels are supported')
+        mime = 'image/png' if image.format == 'PNG' else 'image/jpeg'
+        output = io.BytesIO()
+        upright = ImageOps.exif_transpose(image).convert('RGBA')
+        paper = Image.new('RGBA', upright.size, 'white')
+        Image.alpha_composite(paper,upright).convert('RGB').save(output,format='PDF',resolution=150)
+    return output.getvalue(), {'original_image_b64':base64.b64encode(data).decode('ascii'), 'source_mime':mime,'source_sha256':sha256_of(data)}
+
+
 async def parse_pdf_fast(data: bytes, filename: str) -> ParsedDocument:
     """Native text plus original bytes, suitable for durable save before OCR."""
-    return await asyncio.to_thread(_parse_pdf_textonly, data, filename, allow_empty=True)
+    pdf, source = await asyncio.to_thread(_source_pdf,data)
+    parsed = await asyncio.to_thread(_parse_pdf_textonly, pdf, filename, allow_empty=True)
+    if source:
+        parsed.sha256 = source['source_sha256']
+        parsed.raw.update(source)
+    return parsed
 
 
 async def parse_pdf(data: bytes, filename: str, *, ocr: bool = False) -> ParsedDocument:
-    """Fast native text first; isolated Docling layout/OCR for pages containing images."""
+    """Parse layout and tables for every page, independently of asset extraction."""
     import json
     import tempfile
     from pathlib import Path
 
+    original = data
+    data, source = await asyncio.to_thread(_source_pdf,data)
     parsed = await asyncio.to_thread(_parse_pdf_textonly, data, filename, allow_empty=True)
-    image_pages = parsed.raw.get("image_pages", [])
-    if image_pages or ocr:
-        if not _docling_enabled():
-            raise ValueError("PDF contains images/scans but Docling is disabled. Enable DOCLING_ENABLED and install the full requirements.")
-        selected = list(range(1, parsed.page_count + 1)) if ocr else image_pages
+    if source:
+        parsed.sha256 = sha256_of(original)
+        parsed.raw.update(source)
+    if not _docling_enabled():
+        parsed.raw["parse_warnings"] = ["Layout, table structure and OCR unavailable; native text only"]
+        if not parsed.chunks:
+            raise ValueError("No readable text; enable Docling for scans")
+        return parsed
+    if parsed.page_count:
+        selected = list(range(1, parsed.page_count + 1))
         # Named files stay in this backend folder; only the isolated worker loads native ML models.
         input_path = output_path = None
         try:
@@ -518,11 +609,23 @@ async def parse_pdf(data: bytes, filename: str, *, ocr: bool = False) -> ParsedD
                 f.write(data); input_path = Path(f.name)
             with tempfile.NamedTemporaryFile(suffix=".json", dir=Path(__file__).parents[2], delete=False) as f:
                 output_path = Path(f.name)
-            await _docling_pages(str(input_path), str(output_path), selected)
-            enriched = json.loads(output_path.read_text(encoding="utf-8"))
-            if "error_type" in enriched:
-                raise ValueError(f"Docling OCR failed ({enriched['error_type']}); the PDF is retained for retry")
+            enriched = {"chunks": [], "tables": [], "sections": [], "documents": []}
+            for start in range(len(selected)):
+                pages = selected[start:start+1]
+                scans = set(parsed.raw.get("image_pages", [])).intersection(parsed.raw.get("empty_pages", []))
+                damaged = sorted(set(pages).intersection(set(parsed.raw.get("text_quality_pages", [])) | scans))
+                await _docling_pages(str(input_path), str(output_path), pages, force_ocr_pages=damaged)
+                batch = json.loads(output_path.read_text(encoding="utf-8"))
+                if "error_type" in batch:
+                    import logging
+                    logging.getLogger("uvicorn.error").warning("Docling worker failed (%s), status=%s, pages=%s; source-free frames: %s", batch['error_type'], batch.get('conversion_status'), batch.get('physical_pages'), batch.get('error_frames', []))
+                    raise ValueError(f"Docling processing failed ({batch['error_type']}); original and native text retained for retry")
+                for key in enriched:
+                    enriched[key].extend(batch.get(key, []))
             replacement = [DocChunk(**c) for c in enriched["chunks"]]
+            native_numbers = {}
+            for chunk in parsed.chunks:
+                native_numbers.setdefault(chunk.page, set()).update(re.findall(r"\d+(?:\.\d+)?", chunk.text))
             replaced_pages = {c.page for c in replacement}
             parsed.chunks = [c for c in parsed.chunks if c.page not in replaced_pages] + replacement
             parsed.chunks.sort(key=lambda c: (c.page or 0, c.index))
@@ -530,9 +633,28 @@ async def parse_pdf(data: bytes, filename: str, *, ocr: bool = False) -> ParsedD
             parsed.tables = [DocTable(**t) for t in enriched["tables"]]
             parsed.sections = enriched["sections"]
             parsed.markdown = "\n\n".join(c.text for c in parsed.chunks)
-            parsed.parser = "pypdfium2+docling-ocr"
-            parsed.raw["ocr_pages"] = selected
+            parsed.parser = "pypdfium2+docling"
+            parsed.raw["docling_documents"] = enriched["documents"]
+            parsed.raw["layout_pages"] = selected
+            parsed.raw["ocr_pages"] = sorted(set(parsed.raw.get("image_pages", []) + parsed.raw.get("text_quality_pages", [])))
             parsed.raw["unreadable_pages"] = sorted(set(selected) - replaced_pages)
+            parsed.raw["text_quality_pages"] = sorted({c.page for c in parsed.chunks if _BAD_GLYPHS.search(c.text) and c.page})
+            parsed.raw["parse_warnings"] = []
+            parsed.raw["parse_warnings"].extend("Docling layout/OCR partially completed on pages " + ", ".join(map(str,d['physical_pages']))
+                                              for d in enriched['documents'] if d.get('status', 'success') != 'success')
+            if parsed.raw["unreadable_pages"]:
+                parsed.raw["parse_warnings"].append("Some pages yielded no layout text; inspect the originals")
+            if parsed.raw["text_quality_pages"]:
+                parsed.raw["parse_warnings"].append("Some extracted text has undecodable glyphs; inspect the original pages")
+            if any(not str(column).strip() or len(table.columns) != len(set(table.columns)) for table in parsed.tables for column in table.columns):
+                parsed.raw["parse_warnings"].append("Some table headers are missing or repeated; verify column relationships on the original pages")
+            parsed.raw["parse_warnings"].extend(f"Page {table.page}: {warning}" for table in parsed.tables for warning in table.warnings)
+            extracted_numbers = {}
+            for chunk in parsed.chunks:
+                extracted_numbers.setdefault(chunk.page, set()).update(re.findall(r"\d+(?:\.\d+)?", chunk.text))
+            parsed.raw["numeric_discrepancy_pages"] = sorted(page for page, numbers in native_numbers.items() if page and not numbers.issubset(extracted_numbers.get(page, set())))
+            if parsed.raw["numeric_discrepancy_pages"]:
+                parsed.raw["parse_warnings"].append("Layout/OCR omitted or changed native numeric tokens on pages " + ", ".join(map(str, parsed.raw["numeric_discrepancy_pages"])))
         except asyncio.TimeoutError:
             raise ValueError("Docling processing exceeded five minutes; split this scan into smaller PDFs.") from None
         finally:
@@ -554,14 +676,8 @@ def parsed_to_dict(doc: ParsedDocument) -> dict[str, Any]:
         "title": doc.title,
         "markdown": doc.markdown,
         "sections": list(doc.sections),
-        "tables": [
-            {"page": t.page, "section": t.section, "columns": t.columns, "rows": t.rows}
-            for t in doc.tables
-        ],
-        "chunks": [
-            {"index": c.index, "text": c.text, "page": c.page, "section": c.section}
-            for c in doc.chunks
-        ],
+        "tables": [asdict(t) for t in doc.tables],
+        "chunks": [asdict(c) for c in doc.chunks],
         "raw": doc.raw,
     }
 
@@ -582,6 +698,9 @@ def parsed_from_dict(d: dict[str, Any]) -> ParsedDocument:
                 section=t.get("section", ""),
                 columns=list(t.get("columns", []) or []),
                 rows=list(t.get("rows", []) or []),
+                provenance=list(t.get("provenance", []) or []),
+                cells=list(t.get("cells", []) or []),
+                warnings=list(t.get("warnings", []) or []),
             )
             for t in (d.get("tables") or [])
         ],
@@ -591,6 +710,8 @@ def parsed_from_dict(d: dict[str, Any]) -> ParsedDocument:
                 text=c.get("text", ""),
                 page=c.get("page"),
                 section=c.get("section", ""),
+                kind=c.get("kind", "text"),
+                provenance=list(c.get("provenance", []) or []),
             )
             for i, c in enumerate(d.get("chunks") or [])
         ],

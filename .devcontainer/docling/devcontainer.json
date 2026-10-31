@@ -1,0 +1,12 @@
+{
+  "name": "Atlas Docling CPU worker",
+  "image": "mcr.microsoft.com/devcontainers/python:1-3.13-bookworm",
+  "hostRequirements": { "cpus": 4, "memory": "16gb" },
+  "postCreateCommand": "bash deploy/setup-docling-codespace.sh",
+  "remoteEnv": {
+    "HF_HUB_DISABLE_IMPLICIT_TOKEN": "1",
+    "OMP_NUM_THREADS": "2",
+    "TOKENIZERS_PARALLELISM": "false"
+  },
+  "shutdownAction": "stopContainer"
+}

@@ -1,0 +1,13 @@
+# Parser-only Codespace. Versions match the tested application environment.
+docling==2.113.0
+docling-core==2.87.1
+docling-ibm-models==3.13.3
+docling-parse==7.12.1
+pypdfium2==5.12.1
+rapidocr==3.9.1
+onnxruntime==1.31.0
+psutil==7.2.2
+pillow==12.3.0
+torch==2.13.0
+torchvision==0.28.0
+transformers==5.14.1
