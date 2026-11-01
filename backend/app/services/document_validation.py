@@ -42,6 +42,16 @@ def whitespace(text):
     return " ".join(text.split())
 
 
+def numeric_sign_equivalent(expected, actual):
+    """Diagnose only leading-minus glyphs in complete numeric literals; never repair evidence."""
+    left, right = whitespace(expected), whitespace(actual)
+    number = r"[+\-−–]?[0-9]+(?:\.[0-9]+)?"
+    if not re.fullmatch(number,left) or not re.fullmatch(number,right):
+        return False
+    minus = str.maketrans({"−":"-","–":"-"})
+    return left.translate(minus)==right.translate(minus)
+
+
 def page_text(result):
     text = defaultdict(list)
     for chunk in result.get("chunks", []):
@@ -156,14 +166,21 @@ def inspect_result(result, evidence, pages, directory: Path, expected: Expectati
                     if (cell.get("start_row_offset_idx",-1) <= check.row < cell.get("end_row_offset_idx",-1)
                             and cell.get("start_col_offset_idx",-1) <= check.column < cell.get("end_col_offset_idx",-1)):
                         found.append(cell.get("text", ""))
-            checks.append({"kind":"cell",**check.model_dump(),"passed":len(found)==1 and whitespace(found[0])==whitespace(check.text)})
+            checks.append({"kind":"cell",**check.model_dump(),"observed":found,
+                           "passed":len(found)==1 and whitespace(found[0])==whitespace(check.text),
+                           "numeric_sign_equivalent":len(found)==1 and numeric_sign_equivalent(check.text,found[0])})
         if not checks:
             errors.append("Expected-facts file contains no checks")
         if any(not item["passed"] for item in checks):
             errors.append("One or more source-labelled checks failed")
+    sign_only = sum(not c["passed"] and c.get("numeric_sign_equivalent",False) for c in checks)
     return {"status":"failed" if errors else "needs_review" if warnings or not checks else "labelled_checks_passed",
+            "check_summary":{"total":len(checks),"strict_passed":sum(c["passed"] for c in checks),
+                             "numeric_sign_only_differences":sign_only,
+                             "other_failures":sum(not c["passed"] for c in checks)-sign_only},
             "errors":list(dict.fromkeys(errors)),"warnings":list(dict.fromkeys(warnings)),"missing_native_tokens":missing,
             "labelled_checks":checks,"figure_review_pages":sorted(set(figures)),"human_review_required":True,
+            "comparison_policy":"Whitespace-only acceptance; numeric sign equivalence is diagnostic and never changes passed/status",
             "scope":"Mechanical custody, coverage and labelled-value checks; not lossless or semantic certification"}
 
 
@@ -185,3 +202,40 @@ def compare_results(baseline, candidate, baseline_validation, candidate_validati
             "same_source_pages":same_source,
             "mechanical_retention_pass":same_source and not any(missing.values()) and not lost_cells and not lost_provenance and not removed_warnings and not candidate_validation["errors"],
             "labelled_checks_pass":label_pass,"human_review_required":True,"automatic_promotion":False}
+
+
+def main():
+    """Reinspect a retained job without loading models or overwriting old reports."""
+    import argparse
+    parser = argparse.ArgumentParser(description=main.__doc__)
+    parser.add_argument("directory",type=Path)
+    parser.add_argument("--expectations",type=Path,required=True)
+    parser.add_argument("--output",type=Path,required=True)
+    args = parser.parse_args()
+    try:
+        data = read_json(args.directory/"document.json")
+        evidence = read_json(args.directory/"source-evidence.json")
+        manifest = read_json(args.directory/"manifest.json")
+        expected = Expectations.model_validate(read_json(args.expectations,1024**2))
+        with (args.directory/"source.pdf").open("rb") as stream:
+            digest = hashlib.file_digest(stream,"sha256").hexdigest()
+        if any(value!=digest for value in (evidence.get("source_sha256"),manifest.get("source_sha256"),
+                                          data.get("source_evidence",{}).get("source_sha256"))):
+            raise ValueError("Retained source hashes disagree; inspect custody before rescoring")
+        pages = manifest["physical_pages"]
+        if not pages or any(type(p) is not int or p<1 for p in pages) or sorted(set(pages))!=pages:
+            raise ValueError("Invalid retained physical-page selection")
+        result = inspect_result(data,evidence,pages,args.directory,expected)
+        result.update(source_sha256=digest,expectations_sha256=hashlib.sha256(args.expectations.read_bytes()).hexdigest(),
+                      parser_rerun=False)
+        with args.output.open("x",encoding="utf-8") as stream:
+            json.dump(result,stream,indent=2,ensure_ascii=False)
+    except (OSError,ValueError,KeyError,TypeError,AttributeError) as exc:
+        parser.error(str(exc))
+    print(json.dumps({"status":result["status"],"check_summary":result["check_summary"],
+                      "errors":result["errors"],"warnings":result["warnings"],"output":str(args.output),"parser_rerun":False}))
+    return int(bool(result["errors"]))
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
