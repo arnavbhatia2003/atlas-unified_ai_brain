@@ -48,7 +48,7 @@ def _docling_enabled() -> bool:
     )
 
 _converters: dict[tuple[bool, DoclingOptions], Any] = {}
-PARSER_VERSION = "atlas-evidence-3"
+PARSER_VERSION = "atlas-evidence-4"
 _BAD_GLYPHS = re.compile(r"[\ue000-\uf8ff\ufffd\ufffe]")
 
 
@@ -217,11 +217,7 @@ def _extract_tables(doc: Any) -> list[DocTable]:
 
 
 def _extract_chunks_and_outline(doc: Any) -> tuple[list[DocChunk], list[str]]:
-    """Walk text items in reading order, grouping under the current heading path.
-
-    Uses only stable attributes (text/label/prov) so it tolerates Docling
-    version drift. Falls back to markdown-header splitting if `texts` is absent.
-    """
+    """Group body text by heading; retain visible source furniture separately."""
     outline: list[str] = []
     chunks: list[DocChunk] = []
     heading_stack: list[str] = []
@@ -233,7 +229,7 @@ def _extract_chunks_and_outline(doc: Any) -> tuple[list[DocChunk], list[str]]:
     def section_path() -> str:
         return " > ".join(heading_stack[-3:])
 
-    def flush() -> None:
+    def flush(kind="text") -> None:
         nonlocal buf, buf_page, buf_prov, idx
         text = "\n".join(s.strip() for s in buf if s.strip()).strip()
         buf = []
@@ -245,7 +241,8 @@ def _extract_chunks_and_outline(doc: Any) -> tuple[list[DocChunk], list[str]]:
         while start < len(text):
             piece = text[start : start + _CHUNK_CHARS]
             chunks.append(
-                DocChunk(index=idx, text=piece.strip(), page=buf_page, section=section_path(), provenance=list(buf_prov))
+                DocChunk(index=idx, text=piece.strip(), page=buf_page,
+                         section="" if kind=="document_metadata" else section_path(), kind=kind, provenance=list(buf_prov))
             )
             idx += 1
             if start + _CHUNK_CHARS >= len(text):
@@ -254,12 +251,22 @@ def _extract_chunks_and_outline(doc: Any) -> tuple[list[DocChunk], list[str]]:
         buf_page = None
         buf_prov = []
 
-    texts = [item for item, _ in doc.iterate_items()] if hasattr(doc, "iterate_items") else getattr(doc, "texts", None)
+    if hasattr(doc,"iterate_items"):
+        from docling_core.types.doc import ContentLayer
+        # Docling's body-only default omits source headers, footers and revision text.
+        texts = [item for item,_ in doc.iterate_items(included_content_layers={ContentLayer.BODY,ContentLayer.FURNITURE})]
+    else:
+        texts = getattr(doc,"texts",None)
     if texts:
         for item in texts:
             label = str(getattr(item, "label", "") or "").lower()
             text = str(getattr(item, "text", "") or "").strip()
             if not text:
+                continue
+            if getattr(item,"content_layer",None)=="furniture":
+                flush()
+                buf,buf_page,buf_prov = [text],_page_of(item),_provenance(item)
+                flush("document_metadata")
                 continue
             is_heading = "header" in label or label in ("title", "section_header")
             if is_heading:
