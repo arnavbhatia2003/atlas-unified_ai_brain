@@ -40,7 +40,7 @@ def _docling_enabled() -> bool:
     hosts (e.g. a 512 MB free tier) where torch/Docling would OOM — every PDF
     then uses the low-memory text-only extractor. Tables/layout are lost; the
     narrative text (what IE reads) is retained, so PDF ingestion still works."""
-    return os.getenv("DOCLING_ENABLED", "true").strip().lower() not in (
+    return os.getenv("DOCLING_ENABLED", "false").strip().lower() not in (
         "0",
         "false",
         "no",
@@ -48,8 +48,8 @@ def _docling_enabled() -> bool:
     )
 
 _converters: dict[tuple[bool, DoclingOptions], Any] = {}
-PARSER_VERSION = "atlas-evidence-4"
-_BAD_GLYPHS = re.compile(r"[\ue000-\uf8ff\ufffd\ufffe]")
+PARSER_VERSION = "atlas-evidence-6"
+_BAD_GLYPHS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f\ue000-\uf8ff\ufffd\ufffe]")
 
 
 @dataclass
@@ -253,8 +253,8 @@ def _extract_chunks_and_outline(doc: Any) -> tuple[list[DocChunk], list[str]]:
 
     if hasattr(doc,"iterate_items"):
         from docling_core.types.doc import ContentLayer
-        # Docling's body-only default omits source headers, footers and revision text.
-        texts = [item for item,_ in doc.iterate_items(included_content_layers={ContentLayer.BODY,ContentLayer.FURNITURE})]
+        # Defaults omit furniture and OCR text nested inside pictures.
+        texts = [item for item,_ in doc.iterate_items(traverse_pictures=True, included_content_layers={ContentLayer.BODY,ContentLayer.FURNITURE})]
     else:
         texts = getattr(doc,"texts",None)
     if texts:
@@ -610,8 +610,10 @@ async def parse_pdf(data: bytes, filename: str, *, ocr: bool = False) -> ParsedD
         parsed.raw.update(source)
     if not _docling_enabled():
         parsed.raw["parse_warnings"] = ["Layout, table structure and OCR unavailable; native text only"]
+        if parsed.raw.get('text_quality_pages'):
+            parsed.raw['parse_warnings'].append('Some extracted text has undecodable or control glyphs; inspect the original pages')
         if not parsed.chunks:
-            raise ValueError("No readable text; enable Docling for scans")
+            raise ValueError("No native text; layout/OCR is disabled. Use original-page input with a supported visual model or remote OCR.")
         return parsed
     if parsed.page_count:
         selected = list(range(1, parsed.page_count + 1))
