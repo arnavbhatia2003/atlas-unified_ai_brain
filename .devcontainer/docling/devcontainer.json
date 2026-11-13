@@ -1,6 +1,9 @@
 {
   "name": "Atlas Docling CPU worker",
   "image": "mcr.microsoft.com/devcontainers/python:1-3.13-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/sshd:1": {}
+  },
   "hostRequirements": { "cpus": 2, "memory": "8gb" },
   "postCreateCommand": "bash deploy/setup-docling-codespace.sh",
   "remoteEnv": {
